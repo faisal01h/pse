@@ -2,12 +2,28 @@ import { Head, Link } from "@inertiajs/inertia-react";
 import Label from "@/Components/Label";
 import Input from "@/Components/Input";
 import { GoChevronLeft as ChevronLeft } from 'react-icons/all'
+import { useForm } from "@inertiajs/inertia-react";
+import ValidationErrors from '@/Components/ValidationErrors';
 
 export default function Pengajuan() {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        name: '',
+        position: '',
+        department: '',
+        party: '',
+        evtype: '',
+        link: ''
+    });
 
-    const onHandleChange = () => {
-
+    const onHandleChange = (event) => {
+        setData(event.target.name, event.target.type === 'checkbox' ? event.target.checked : event.target.value);
     }
+
+    const onSubmit = (e) => {
+        e.preventDefault();
+
+        post(route('newReport'));
+    };
 
     return (
         <div>
@@ -16,7 +32,8 @@ export default function Pengajuan() {
                 <Link href="/" className="flex flex-row items-center hover:text-rose-500 w-fit transition-all duration-300"><ChevronLeft /> Kembali</Link>
                 <h1 className="font-bold text-2xl md:text-4xl text-rose-500">Buat Laporan</h1>
                 <div>
-                    <form onSubmit="" method="post" className="flex flex-col gap-3 max-w-xl">
+                    <form onSubmit={onSubmit} className="flex flex-col gap-3 max-w-xl">
+                        <ValidationErrors errors={errors} />
                         <h3 className="text-xl">Profil</h3>
                         <div>
                             <Label forInput="name" value="Nama figur" />
@@ -93,7 +110,7 @@ export default function Pengajuan() {
                             />
                         </div>
                         
-                        <button className="bg-rose-500 rounded-lg p-3 my-5 text-white font-semibold">Submit</button>
+                        <button className="bg-rose-500 rounded-lg p-3 my-5 text-white font-semibold" onSubmit={onSubmit}>Submit</button>
                     </form>
                 </div>
             </div>

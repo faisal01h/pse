@@ -28,6 +28,10 @@ Route::get('/laporan', function () {
     return Inertia::render('Pengajuan');
 });
 
+Route::post('/laporan', [\App\Http\Controllers\SupporterController::class, 'create'])->name('newReport');
+Route::post('/laporan/approve', [\App\Http\Controllers\SupporterController::class, 'approveLaporan'])->name('approveReport');
+
+
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');

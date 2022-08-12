@@ -19,3 +19,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::get('/supporters', [\App\Http\Controllers\SupporterController::class, 'getAll']);
+
+Route::get('/laporan', [\App\Http\Controllers\SupporterController::class, 'getPendingReviewLaporan']);
+
+Route::post('/laporan/manage', [\App\Http\Controllers\SupporterController::class, 'getAll']);
