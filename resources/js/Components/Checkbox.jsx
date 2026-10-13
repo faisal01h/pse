@@ -6,7 +6,7 @@ export default function Checkbox({ name, value, handleChange }) {
             type="checkbox"
             name={name}
             value={value}
-            className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            className="h-6 w-6 border-2 border-ink text-brand rounded-none"
             onChange={(e) => handleChange(e)}
         />
     );

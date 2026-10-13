@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\PoliticianController;
+use App\Models\Politician;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -18,8 +20,12 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::get('/supporters', [\App\Http\Controllers\SupporterController::class, 'getAll']);
+Route::middleware('throttle:catalog-api')->group(function () {
+    Route::get('/politicians', [PoliticianController::class, 'apiIndex']);
 
-Route::get('/laporan', [\App\Http\Controllers\SupporterController::class, 'getPendingReviewLaporan']);
+    Route::get('/politicians/{politician}', function (Politician $politician, PoliticianController $politicians) {
+        return $politicians->show($politician);
+    });
+});
 
-Route::post('/laporan/manage', [\App\Http\Controllers\SupporterController::class, 'getAll']);
+Route::middleware('auth:sanctum')->get('/reports', [PoliticianController::class, 'pending']);

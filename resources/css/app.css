@@ -1,3 +1,185 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    html {
+        font-size: 19px;
+    }
+
+    body {
+        color: #0b0c0c;
+        background: #ffffff;
+    }
+
+    :focus {
+        outline: 3px solid #ffdd00;
+        outline-offset: 0;
+        box-shadow: inset 0 0 0 2px #0b0c0c;
+    }
+
+    main a {
+        color: #f43f5e;
+        text-underline-offset: 3px;
+    }
+
+    main a:hover {
+        color: #e11d48;
+    }
+
+    main a.gov-button,
+    main a.gov-button:hover {
+        color: #ffffff;
+    }
+
+    main a.row-link,
+    main a.row-link:hover,
+    main a.chip,
+    main a.chip:hover,
+    header a.admin-bar-link,
+    header a.admin-bar-link:hover {
+        color: #0b0c0c;
+        text-decoration: none;
+    }
+
+    main a.chip-selected,
+    main a.chip-selected:hover {
+        color: #ffffff;
+        text-decoration: none;
+    }
+
+    main tr:hover a.row-link {
+        text-decoration: underline;
+    }
+}
+
+@layer components {
+    .gov-input {
+        @apply block w-full border-2 border-ink bg-white text-ink text-lg px-2 py-1 rounded-none shadow-none;
+    }
+
+    .gov-button {
+        @apply inline-block bg-brand text-white font-bold px-4 py-2 border-0 cursor-pointer no-underline;
+        box-shadow: 0 2px 0 #9f1239;
+    }
+
+    .gov-button:hover {
+        background-color: #e11d48;
+        color: #ffffff;
+    }
+
+    .gov-button:disabled {
+        opacity: 0.6;
+    }
+}
+
+@keyframes step-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.step-in {
+    animation: step-in 180ms ease-out;
+}
+
+.page-body > :first-child {
+    margin-top: 0;
+}
+
+.page-body p,
+.page-body ul,
+.page-body ol,
+.page-body blockquote,
+.page-body pre {
+    margin-top: 1rem;
+}
+
+.page-body h2,
+.page-body h3,
+.page-body h4 {
+    margin-top: 1.5rem;
+    font-weight: 700;
+}
+
+.page-body h2 {
+    font-size: 1.5rem;
+}
+
+.page-body h3 {
+    font-size: 1.25rem;
+}
+
+.page-body ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+}
+
+.page-body ol {
+    list-style: decimal;
+    padding-left: 1.5rem;
+}
+
+.page-body blockquote {
+    border-left: 4px solid #0b0c0c;
+    padding-left: 1rem;
+}
+
+.page-body pre {
+    overflow-x: auto;
+    background: #f3f2f1;
+    padding: 0.75rem;
+}
+
+.page-editor .ProseMirror {
+    min-height: 16rem;
+    border: 2px solid #0b0c0c;
+    background: #ffffff;
+    padding: 0.5rem 0.75rem;
+}
+
+.page-editor .ProseMirror p {
+    margin-top: 0.75rem;
+}
+
+.page-editor .ProseMirror > :first-child {
+    margin-top: 0;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th {
+    padding: 0.4rem 0.75rem;
+    border-bottom: 2px solid #0b0c0c;
+    text-align: left;
+    font-weight: 700;
+}
+
+.admin-table td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid #b1b4b6;
+    vertical-align: middle;
+}
+
+.admin-table tbody tr {
+    position: relative;
+}
+
+.admin-table tbody tr:hover {
+    background: #f3f2f1;
+}
+
+.admin-table a.row-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+}

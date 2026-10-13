@@ -1,6 +1,26 @@
 <?php
 
-use Illuminate\Foundation\Application;
+use App\Catalog\PageMeta;
+use App\Http\Controllers\Admin\AuditController;
+use App\Http\Controllers\Admin\PageController as AdminPageController;
+use App\Http\Controllers\Admin\PartyController;
+use App\Http\Controllers\Admin\PoliticianAdminController;
+use App\Http\Controllers\Admin\ProposalController;
+use App\Http\Controllers\Admin\RelationshipAdminController;
+use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\CaptchaController;
+use App\Http\Controllers\DisputeController;
+use App\Http\Controllers\FeedController;
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\PartyProfileController;
+use App\Http\Controllers\PoliticianController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\SubmissionTrackingController;
+use App\Inference\ProposalQueue;
+use App\Models\Party;
+use App\Models\Politician;
+use App\Models\PublicRecord;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -15,25 +35,162 @@ use Inertia\Inertia;
 |
 */
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => false, //Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
+Route::get('/attachments/{attachment}', [AttachmentController::class, 'show'])
+    ->middleware('throttle:attachments')
+    ->name('attachments.show');
+
+Route::middleware('throttle:catalog')->group(function () {
+    Route::get('/feed', FeedController::class)->name('feed');
+    Route::get('/feed.xml', FeedController::class);
+
+    Route::get('/', function (Request $request, PoliticianController $politicians) {
+        $party = $request->filled('party')
+            ? Party::query()->find($request->integer('party'))
+            : null;
+        $reports = $party
+            ? $politicians->publishedReports($party->id)
+            : ($request->filled('party') ? null : $politicians->publishedReports());
+
+        return Inertia::render('Welcome', [
+            'canLogin' => Route::has('login'),
+            'canRegister' => false,
+            'reports' => $reports['items'] ?? [],
+            'meta' => $reports['meta'] ?? PageMeta::empty(),
+            'party' => $party ? $party->only(['id', 'name', 'logo_url']) : null,
+        ]);
+    });
+
+    Route::get('/politicians', function (Request $request, PoliticianController $politicians) {
+        $catalog = $politicians->catalog($request->query('q'));
+
+        return Inertia::render('Politicians', [
+            'politicians' => $catalog['items'],
+            'meta' => $catalog['meta'],
+            'query' => trim((string) $request->query('q', '')),
+        ]);
+    })->name('politicians.index');
+
+    Route::get('/parties', function (Request $request, PartyProfileController $profile) {
+        $catalog = $profile->catalog($request->query('q'));
+
+        return Inertia::render('Parties', [
+            'parties' => $catalog['items'],
+            'meta' => $catalog['meta'],
+            'query' => trim((string) $request->query('q', '')),
+        ]);
+    })->name('parties.index');
+
+    Route::get('/parties/{party}', function (Party $party, PartyProfileController $profile, PoliticianController $politicians) {
+        $members = $politicians->memberSummaries($party->id);
+
+        return Inertia::render('Party', [
+            'party' => $profile->show($party),
+            'politicians' => $members['items'],
+            'meta' => $members['meta'],
+        ]);
+    })->name('parties.show');
+
+    Route::get('/politicians/{politician}', function (Politician $politician, PoliticianController $politicians) {
+        return Inertia::render('Politician', [
+            'politician' => $politicians->show($politician),
+        ]);
+    })->name('politicians.show');
+
+    Route::get('/pages/{page:slug}', [PageController::class, 'show'])->name('pages.show');
+});
+
+Route::get('/search', SearchController::class)->middleware('throttle:search')->name('search');
+
+Route::get('/reports', function () {
+    return Inertia::render('Pengajuan', [
+        'parties' => Party::query()->orderBy('name')->get(['id', 'name']),
     ]);
+})->name('reports.create');
+
+Route::get('/reports/suggest', [PoliticianController::class, 'suggest'])
+    ->middleware('throttle:60,1')
+    ->name('reports.suggest');
+
+Route::get('/reports/received', [SubmissionTrackingController::class, 'receipt'])->name('reports.receipt');
+
+Route::get('/reports/track', [SubmissionTrackingController::class, 'create'])->name('reports.track');
+Route::post('/reports/track', [SubmissionTrackingController::class, 'show'])
+    ->middleware('throttle:track')
+    ->name('reports.track.submit');
+
+Route::get('/dispute', [DisputeController::class, 'create'])->name('dispute.create');
+Route::get('/dispute/received', [DisputeController::class, 'received'])->name('dispute.received');
+Route::get('/dispute/records', [DisputeController::class, 'records'])
+    ->middleware('throttle:60,1')
+    ->name('dispute.records');
+Route::post('/dispute', [DisputeController::class, 'store'])
+    ->middleware('throttle:disputes')
+    ->name('dispute.store');
+
+Route::get('/captcha', [CaptchaController::class, 'image'])->middleware('throttle:30,1')->name('captcha');
+
+Route::post('/reports', [PoliticianController::class, 'create'])
+    ->middleware('throttle:reports')
+    ->name('newReport');
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', function (PoliticianController $politicians, DisputeController $disputes) {
+        return Inertia::render('Dashboard', [
+            'reports' => $politicians->pending(),
+            'decided' => $politicians->decided(),
+            'proposals' => app(ProposalQueue::class)->pending(),
+            'disputes' => $disputes->pending(),
+        ]);
+    })->name('dashboard');
+
+    Route::post('/admin/disputes/{dispute}', [DisputeController::class, 'decide'])->name('admin.disputes.decide');
+
+    Route::get('/reviews/{record}', function (PublicRecord $record, PoliticianController $politicians) {
+        return Inertia::render('Review', $politicians->review($record));
+    })->name('reports.review');
+
+    Route::post('/reviews/{record}', [PoliticianController::class, 'decide'])->name('reports.decide');
+    Route::post('/admin/proposals/{proposal}/accept', [ProposalController::class, 'accept'])->name('admin.proposals.accept');
+    Route::post('/admin/proposals/{proposal}/dismiss', [ProposalController::class, 'dismiss'])->name('admin.proposals.dismiss');
+
+    Route::get('/admin/audits', [AuditController::class, 'index'])->name('admin.audits.index');
+    Route::post('/admin/audits', [AuditController::class, 'runAll'])->name('admin.audits.run');
+    Route::post('/admin/audits/records/{record}', [AuditController::class, 'run'])->name('admin.audits.records.run');
+
+    Route::get('/admin/pages', [AdminPageController::class, 'index'])->name('admin.pages.index');
+    Route::get('/admin/pages/new', [AdminPageController::class, 'create'])->name('admin.pages.create');
+    Route::post('/admin/pages', [AdminPageController::class, 'store'])->name('admin.pages.store');
+    Route::get('/admin/pages/{page}', [AdminPageController::class, 'edit'])->name('admin.pages.edit');
+    Route::post('/admin/pages/{page}', [AdminPageController::class, 'update'])->name('admin.pages.update');
+    Route::delete('/admin/pages/{page}', [AdminPageController::class, 'destroy'])->name('admin.pages.destroy');
+
+    Route::get('/admin/parties', [PartyController::class, 'index'])->name('admin.parties.index');
+    Route::get('/admin/parties/suggest', [RelationshipAdminController::class, 'suggestParties'])->name('admin.parties.suggest');
+    Route::get('/admin/parties/new', [PartyController::class, 'create'])->name('admin.parties.create');
+    Route::post('/admin/parties', [PartyController::class, 'store'])->name('admin.parties.store');
+    Route::get('/admin/parties/{party}', [PartyController::class, 'edit'])->name('admin.parties.edit');
+    Route::post('/admin/parties/{party}', [PartyController::class, 'update'])->name('admin.parties.update');
+    Route::delete('/admin/parties/{party}', [PartyController::class, 'destroy'])->name('admin.parties.destroy');
+    Route::post('/admin/parties/{party}/tendencies', [RelationshipAdminController::class, 'storePartyTendency'])->name('admin.parties.tendencies.store');
+    Route::delete('/admin/parties/{party}/tendencies/{axis}', [RelationshipAdminController::class, 'destroyPartyTendency'])->name('admin.parties.tendencies.destroy');
+    Route::post('/admin/parties/{party}/links', [RelationshipAdminController::class, 'storePartyLink'])->name('admin.parties.links.store');
+    Route::delete('/admin/parties/{party}/links/{partyLink}', [RelationshipAdminController::class, 'destroyPartyLink'])->name('admin.parties.links.destroy');
+    Route::post('/admin/parties/{party}/issues', [RelationshipAdminController::class, 'storePartyStance'])->name('admin.parties.stances.store');
+    Route::delete('/admin/parties/{party}/issues/{issueStance}', [RelationshipAdminController::class, 'destroyPartyStance'])->name('admin.parties.stances.destroy');
+
+    Route::get('/admin/politicians', [PoliticianAdminController::class, 'index'])->name('admin.politicians.index');
+    Route::get('/admin/politicians/suggest', [RelationshipAdminController::class, 'suggestPoliticians'])->name('admin.politicians.suggest');
+    Route::get('/admin/politicians/new', [PoliticianAdminController::class, 'create'])->name('admin.politicians.create');
+    Route::post('/admin/politicians', [PoliticianAdminController::class, 'store'])->name('admin.politicians.store');
+    Route::get('/admin/politicians/{politician}', [PoliticianAdminController::class, 'edit'])->name('admin.politicians.edit');
+    Route::post('/admin/politicians/{politician}', [PoliticianAdminController::class, 'update'])->name('admin.politicians.update');
+    Route::delete('/admin/politicians/{politician}', [PoliticianAdminController::class, 'destroy'])->name('admin.politicians.destroy');
+    Route::post('/admin/politicians/{politician}/tendencies', [RelationshipAdminController::class, 'storePoliticianTendency'])->name('admin.politicians.tendencies.store');
+    Route::delete('/admin/politicians/{politician}/tendencies/{axis}', [RelationshipAdminController::class, 'destroyPoliticianTendency'])->name('admin.politicians.tendencies.destroy');
+    Route::post('/admin/politicians/{politician}/links', [RelationshipAdminController::class, 'storePoliticianLink'])->name('admin.politicians.links.store');
+    Route::delete('/admin/politicians/{politician}/links/{politicianLink}', [RelationshipAdminController::class, 'destroyPoliticianLink'])->name('admin.politicians.links.destroy');
+    Route::post('/admin/politicians/{politician}/issues', [RelationshipAdminController::class, 'storePoliticianStance'])->name('admin.politicians.stances.store');
+    Route::delete('/admin/politicians/{politician}/issues/{issueStance}', [RelationshipAdminController::class, 'destroyPoliticianStance'])->name('admin.politicians.stances.destroy');
 });
-
-Route::get('/laporan', function () {
-    return Inertia::render('Pengajuan');
-});
-
-Route::post('/laporan', [\App\Http\Controllers\SupporterController::class, 'create'])->name('newReport');
-Route::post('/laporan/approve', [\App\Http\Controllers\SupporterController::class, 'approveLaporan'])->name('approveReport');
-
-
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
 
 require __DIR__.'/auth.php';

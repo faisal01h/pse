@@ -13,17 +13,26 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('psesupporters', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('pictureUrl')->nullable();
-            $table->string('position')->nullable();
-            $table->string('department')->nullable();
-            $table->string('quoted_statement')->nullable();
-            $table->string('party')->nullable();
-            $table->integer('status');
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('parties')) {
+            Schema::create('parties', function (Blueprint $table) {
+                $table->id();
+                $table->string('name')->unique();
+                $table->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('politicians')) {
+            Schema::create('politicians', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('picture_url')->nullable();
+                $table->string('position')->nullable();
+                $table->string('institution')->nullable();
+                $table->foreignId('party_id')->nullable()->constrained('parties')->nullOnDelete();
+                $table->unsignedTinyInteger('status')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**
@@ -33,6 +42,7 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('politicians');
+        Schema::dropIfExists('parties');
     }
 };

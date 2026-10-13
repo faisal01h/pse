@@ -1,80 +1,104 @@
-import React, { useEffect, useState } from 'react';
 import { Link, Head } from '@inertiajs/inertia-react';
-import Figure from '@/Components/Figure';
-import axios from 'axios';
+import Public from '@/Layouts/Public';
+import PageLinks from '@/Components/PageLinks';
+import RecordMedia from '@/Components/RecordMedia';
+
+const categoryLabel = {
+    statement: 'Pernyataan publik',
+    allegation: 'Dugaan pelanggaran',
+    conviction: 'Vonis pengadilan',
+};
+
+const categoryClass = {
+    statement: 'border-brand text-brand',
+    allegation: 'border-ink text-ink',
+    conviction: 'border-ink bg-ink text-white',
+};
+
+function formatDate(value) {
+    if (!value) {
+        return 'Tanggal tidak diisi';
+    }
+
+    return new Date(value).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+}
 
 export default function Welcome(props) {
-    const [ supporters, setSupporters ] = useState([]);
-    useEffect(() => {
-        axios.get('/api/supporters')
-        .then((e) => {
-            setSupporters(e.data)
-            
-        })
-        .catch(console.error)
-    }, [])
+    const reports = props.reports ?? [];
 
     return (
-        <>
-            <Head title={props.i18n? props.i18n : "Beranda"} />
-            <div className="bg-gradient-to-b from-slate-200 to-rose-200 dark:bg-slate-800 min-h-screen w-screen flex flex-col gap-5">
-                <div className="mx-5 md:mx-12 md:pt-48 pt-5">
-                    <h1 className="text-5xl md:text-7xl font-bold text-rose-500">PSE</h1>
-                    <p>Penyelenggara Sistem Elektronik</p>
-                </div>
-
-                <div className="mx-5 md:mx-12 flex flex-col gap-3">
-                    <p className="md:w-[55vw]">
-                        Peraturan Menteri Komunikasi dan Informatika No. 5 Tahun 2020 mengatur tentang kewajiban PSE Lingkup Privat dalam melakukan pemutusan akses (take down) terhadap informasi elektronik dan/atau dokumen elektronik yang dilarang. PSE Lingkup Privat wajib memberikan akses terhadap sistem elektronik dan/atau data elektronik untuk kepentingan pengawasan dan penegakan hukum pidana.
-                    </p>
-                    <a className="p-3 bg-rose-500 w-fit text-white rounded-lg hover:shadow-xl hover:shadow-rose-300 hover:bg-rose-600 transition-all duration-300" href="https://jdih.kominfo.go.id/produk_hukum/view/id/759/t/peraturan+menteri+komunikasi+dan+informatika+nomor+5+tahun+2020">
-                        Lihat Berkas Permenkominfo
-                    </a>
-                </div>
-
-                <div className="mx-5 md:mx-12 mt-10 flex flex-col gap-3">
-                    <p className="md:w-[55vw]">
-                        Untuk melihat daftar situs web populer yang telah atau belum melakukan registrasi PSE, dan situs web yang telah diblokir, anda dapat mengunjungi
-                        <a href="https://kominfod.angelo.fyi/" className="text-rose-600 hover:text-white hover:bg-rose-500 p-1 transition-all duration-300 rounded-lg underline hover:no-underline">kominfod.angelo.fyi</a>
-                    </p>
-                </div>
-
-                <div className="mx-5 md:mx-12 mt-10 flex flex-col gap-3">
-                    <h2 className="text-xl md:text-2xl font-bold">Figur publik yang mendukung Permenkominfo No. 5 Tahun 2020</h2>
-                    <div>
-
-                    </div>
-                    <div className="flex flex-row md:flex-col gap-3 flex-wrap md:max-h-[95vh] md:items-start md:justify-start md:overflow-x-auto">
-                        {
-                            supporters.length > 0 ?
-                            supporters.map((e, i) => {
-                                return (
-                                    
-                                    <Figure
-                                        key={i}
-                                        name={e.name}
-                                        picture={e.pictureUrl}
-                                        position={e.position}
-                                        department={e.department}
-                                        quote={e.quoted_statement}
-                                        party={e.party}
-                                        evidence={[e.evidences]}
-                                    />
-                                )
-                            }) : "Tidak ada data."
-                        }
-                    </div>
-                    <p>
-                            Jika anda mengetahui figur lain yang belum terdaftar, silakan melakukan
-                             <Link href="/laporan" className="text-rose-600 hover:text-white hover:bg-rose-500 p-1 transition-all duration-300 rounded-lg underline hover:no-underline">pelaporan.</Link>
-                             Laporan anda akan diproses untuk verifikasi bukti.
-                        </p>
-                </div>
-                
-                <div>
-
-                </div>
+        <Public auth={props.auth}>
+            <Head title="Beranda" />
+            <div className="max-w-[960px] mx-auto px-4 pt-8">
+                <h1 className="text-4xl md:text-5xl font-bold leading-tight">PolitiSEE</h1>
+                <p className="mt-3 max-w-2xl text-xl">Arsip publik tokoh publik, pejabat dan politisi.</p>
+                <Link href="/reports" className="gov-button mt-6">Buat pengajuan</Link>
             </div>
-        </>
+
+            <section className="bg-canvas mt-10 py-8">
+                <div className="max-w-[960px] mx-auto px-4">
+                    {props.party ? (
+                        <p className="mb-4">
+                            Partai: <Link href={route('parties.show', props.party.id)}><strong>{props.party.name}</strong></Link>. <Link href="/">Tampilkan semua catatan</Link>
+                        </p>
+                    ) : null}
+                    <h2 className="text-3xl font-bold">Data terbaru</h2>
+                    {reports.length > 0 ? (
+                        <div className="mt-4 bg-white">
+                            {reports.map((report) => (
+                                <article key={report.id} className="border-b-2 border-ink px-4 py-5">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-muted">{formatDate(report.date)}</p>
+                                        <span className="flex flex-wrap justify-end gap-2">
+                                            <span className={`text-sm font-bold border-2 px-2 py-0.5 ${categoryClass[report.category] ?? 'border-ink text-ink'}`}>
+                                                {categoryLabel[report.category] ?? report.category}
+                                            </span>
+                                            {(report.topics ?? []).map((topic) => (
+                                                <span key={topic.id} className="border-2 border-ink px-2 py-0.5 text-sm">{topic.name}</span>
+                                            ))}
+                                        </span>
+                                    </div>
+                                    <div className="mt-3 flex gap-4">
+                                        {report.politician.photo_url ? (
+                                            <img src={report.politician.photo_url} alt="" className="h-20 w-20 shrink-0 border-2 border-ink object-cover" />
+                                        ) : null}
+                                        <div>
+                                            <h3 className="text-2xl font-bold leading-tight">
+                                                <Link href={report.href}>{report.politician.name}</Link>
+                                            </h3>
+                                            {report.politician.position ? <p className="text-muted">{report.politician.position}</p> : null}
+                                            {report.politician.institution ? <p className="text-muted">{report.politician.institution}</p> : null}
+                                            {report.politician.party ? (
+                                                <p className="mt-1 flex items-center gap-2">
+                                                    {report.politician.party.logo_url ? (
+                                                        <img src={report.politician.party.logo_url} alt="" className="h-8 w-8 border-2 border-ink bg-white object-contain" />
+                                                    ) : null}
+                                                    <Link href={route('parties.show', report.politician.party.id)}>{report.politician.party.name}</Link>
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                    {report.quote ? <blockquote className="mt-3 border-l-4 border-ink pl-3 text-lg">"{report.quote}"</blockquote> : null}
+                                    {report.summary ? <p className="mt-3">{report.summary}</p> : null}
+                                    <RecordMedia attachments={report.attachments} compact />
+                                    <a href={report.source_url} className="mt-3 inline-block font-bold" target="_blank" rel="noreferrer">
+                                        Sumber: {report.source_type}
+                                    </a>
+                                </article>
+                            ))}
+                        </div>
+                    ) : <p className="mt-4">Belum ada data yang terbit.</p>}
+                    <PageLinks
+                        path="/"
+                        meta={props.meta}
+                        query={props.party ? { party: props.party.id } : {}}
+                    />
+                </div>
+            </section>
+        </Public>
     );
 }
