@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Inference\HttpReportReader;
+use App\Inference\LayaReportReader;
 use App\Inference\LocalReportReader;
 use App\Inference\ReportReader;
 use App\Search\Embedder;
@@ -10,6 +11,7 @@ use App\Search\HashingEmbedder;
 use App\Search\HttpEmbedder;
 use App\Search\SearchIndexer;
 use Illuminate\Support\ServiceProvider;
+use MarcReichel\Laya\Laya;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
             return new HashingEmbedder($dimensions > 0 ? $dimensions : 256);
         });
 
-        $this->app->bind(ReportReader::class, function () {
+        $this->app->bind(ReportReader::class, function ($app) {
             $local = new LocalReportReader;
             $url = (string) config('inference.url');
             $key = (string) config('inference.key');
@@ -51,6 +53,14 @@ class AppServiceProvider extends ServiceProvider
                     (string) config('inference.model'),
                     (int) config('inference.timeout', 8),
                     $local,
+                );
+            }
+
+            if (config('inference.driver') === 'laya') {
+                return new LayaReportReader(
+                    $app->make(Laya::class),
+                    $local,
+                    (float) config('inference.laya_min_confidence', 0.55),
                 );
             }
 

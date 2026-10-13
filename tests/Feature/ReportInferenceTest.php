@@ -16,6 +16,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use MarcReichel\Laya\Laya;
 use Tests\TestCase;
 
 class ReportInferenceTest extends TestCase
@@ -148,6 +149,47 @@ class ReportInferenceTest extends TestCase
         $position->refresh();
         $this->assertSame(10, $position->score);
         $this->assertSame(1, $position->samples);
+    }
+
+    public function test_the_laya_driver_proposes_from_typed_answers(): void
+    {
+        $user = User::factory()->create();
+        $subject = $this->politician('Sari Wibowo');
+        $other = $this->politician('Budi Santoso');
+        $issue = Issue::create(['name' => 'Subsidi pangan']);
+        $record = $this->pendingRecord($subject, 'Sari mendukung Budi Santoso dalam pembahasan subsidi pangan hari ini juga.');
+
+        config(['inference.driver' => 'laya']);
+        Laya::fake([
+            'present.ekonomi' => true,
+            'score.ekonomi' => 0.8,
+            'present.sosial' => false,
+            'score.sosial' => 0,
+            'present.nasionalisme' => false,
+            'score.nasionalisme' => 0,
+            'stance.'.$issue->id => 'dukung',
+            'link.'.$other->id => 'mendukung',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('reports.decide', $record), $this->decision($subject, $record->quote))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('relationship_proposals', [
+            'public_record_id' => $record->id,
+            'kind' => RelationshipProposal::KIND_AXIS,
+            'status' => RelationshipProposal::STATUS_PENDING,
+        ]);
+        $this->assertDatabaseHas('audits', [
+            'public_record_id' => $record->id,
+            'action' => Audit::ACTION_INFERENCE,
+            'method' => 'laya:multilingual',
+        ]);
+        $this->assertDatabaseHas('relationship_proposals', [
+            'public_record_id' => $record->id,
+            'kind' => RelationshipProposal::KIND_LINK,
+            'status' => RelationshipProposal::STATUS_PENDING,
+        ]);
     }
 
     public function test_rejecting_a_report_creates_no_proposal(): void

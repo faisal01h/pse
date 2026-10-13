@@ -15,7 +15,7 @@ interface ReportReader
     public function read(string $text, int $subjectId, iterable $politicians, iterable $issues): array;
 
     /**
-     * The reader that produced the last result: "local", or "http:{model}".
+     * The reader that produced the last result: "local", "http:{model}", or "laya:{checkpoint}".
      */
     public function method(): ?string;
 }

@@ -147,7 +147,17 @@ class AuditController extends Controller
             return $model === '' ? 'HTTP' : 'HTTP · '.$model;
         }
 
-        return $method === 'http' ? 'HTTP' : $method;
+        if (str_starts_with($method, 'laya:')) {
+            $model = substr($method, 5);
+
+            return $model === '' ? 'Laya' : 'Laya · '.$model;
+        }
+
+        return match ($method) {
+            'http' => 'HTTP',
+            'laya' => 'Laya',
+            default => $method,
+        };
     }
 
     private function plain(mixed $value): string
