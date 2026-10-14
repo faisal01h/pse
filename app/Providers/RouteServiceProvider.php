@@ -85,6 +85,15 @@ class RouteServiceProvider extends ServiceProvider
             );
         });
 
+        RateLimiter::for('scipol-export', function (Request $request) {
+            return $this->readLimits(
+                $request,
+                'scipol-export',
+                (int) config('catalog.scipol_export_per_minute'),
+                (int) config('catalog.scipol_export_per_hour'),
+            );
+        });
+
         RateLimiter::for('track', function (Request $request) {
             return Limit::perMinute(20)->by($request->ip())->response(function () {
                 return back()->withErrors([

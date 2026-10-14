@@ -36,6 +36,7 @@ export default function Public({ children, auth }) {
         { href: '/politicians', label: 'Politisi' },
         { href: '/parties', label: 'Partai' },
         { href: '/businesses', label: 'Bisnis' },
+        { href: '/scipol', label: 'SciPol' },
         { href: '/reports', label: 'Buat pengajuan' },
         { href: '/reports/track', label: 'Lacak pengajuan' },
         { href: '/dispute', label: 'Dispute' },

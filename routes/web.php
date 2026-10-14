@@ -18,6 +18,14 @@ use App\Http\Controllers\FeedController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PartyProfileController;
 use App\Http\Controllers\PoliticianController;
+use App\Http\Controllers\SciPol\AffiliationController as SciPolAffiliationController;
+use App\Http\Controllers\SciPol\CompareController as SciPolCompareController;
+use App\Http\Controllers\SciPol\ExportController as SciPolExportController;
+use App\Http\Controllers\SciPol\HubController as SciPolHubController;
+use App\Http\Controllers\SciPol\IssueController as SciPolIssueController;
+use App\Http\Controllers\SciPol\PracticeController as SciPolPracticeController;
+use App\Http\Controllers\SciPol\SuggestController as SciPolSuggestController;
+use App\Http\Controllers\SciPol\TopicController as SciPolTopicController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SubmissionTrackingController;
 use App\Inference\ProposalQueue;
@@ -123,7 +131,24 @@ Route::middleware('throttle:catalog')->group(function () {
     })->name('businesses.show');
 
     Route::get('/pages/{page:slug}', [PageController::class, 'show'])->name('pages.show');
+
+    Route::prefix('scipol')->name('scipol.')->group(function () {
+        Route::get('/', SciPolHubController::class)->name('hub');
+        Route::get('/bandingkan', SciPolCompareController::class)->name('compare');
+        Route::get('/isu', [SciPolIssueController::class, 'index'])->name('issues.index');
+        Route::get('/isu/{issue}', [SciPolIssueController::class, 'show'])->name('issues.show');
+        Route::get('/afiliasi', SciPolAffiliationController::class)->name('affiliations');
+        Route::get('/topik', SciPolTopicController::class)->name('topics');
+        Route::get('/latihan', SciPolPracticeController::class)->name('practice');
+        Route::get('/suggest', SciPolSuggestController::class)
+            ->middleware('throttle:60,1')
+            ->name('suggest');
+    });
 });
+
+Route::get('/scipol/ekspor', SciPolExportController::class)
+    ->middleware('throttle:scipol-export')
+    ->name('scipol.export');
 
 Route::get('/search', SearchController::class)->middleware('throttle:search')->name('search');
 

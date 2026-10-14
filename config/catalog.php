@@ -24,6 +24,9 @@ return [
     'search_per_minute' => (int) env('CATALOG_SEARCH_PER_MINUTE', 90),
     'search_per_hour' => (int) env('CATALOG_SEARCH_PER_HOUR', 400),
 
+    'scipol_export_per_minute' => (int) env('SCIPOL_EXPORT_PER_MINUTE', 10),
+    'scipol_export_per_hour' => (int) env('SCIPOL_EXPORT_PER_HOUR', 60),
+
     /*
     |--------------------------------------------------------------------------
     | Page sizes
