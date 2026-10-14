@@ -1,35 +1,45 @@
 import { Link, usePage } from '@inertiajs/inertia-react';
 
+function hasAny(permissions, keys) {
+    return keys.some((key) => permissions.includes(key));
+}
+
 const items = [
     {
         label: 'Pemeriksaan',
         match: ['dashboard', 'reports.review', 'affiliations.review'],
         href: () => route('dashboard'),
-        show: () => true,
+        show: (permissions) => permissions.includes('checks.perform'),
     },
     {
         label: 'Politisi',
         match: ['admin.politicians.*'],
         href: () => route('admin.politicians.index'),
-        show: () => true,
+        show: (permissions) => hasAny(permissions, ['figures.add', 'figures.edit']),
     },
     {
         label: 'Partai',
         match: ['admin.parties.*'],
         href: () => route('admin.parties.index'),
-        show: () => true,
+        show: (permissions) => hasAny(permissions, ['parties.add', 'parties.edit']),
+    },
+    {
+        label: 'Bisnis',
+        match: ['admin.businesses.*'],
+        href: () => route('admin.businesses.index'),
+        show: (permissions) => hasAny(permissions, ['businesses.add', 'businesses.edit']),
     },
     {
         label: 'Halaman',
         match: ['admin.pages.*'],
         href: () => route('admin.pages.index'),
-        show: () => true,
+        show: (permissions) => hasAny(permissions, ['pages.add', 'pages.edit']),
     },
     {
         label: 'Audit',
         match: ['admin.audits.*'],
         href: () => route('admin.audits.index'),
-        show: () => true,
+        show: (permissions) => permissions.includes('audits.view'),
     },
     {
         label: 'Peran',
@@ -57,6 +67,10 @@ export default function AdminNav() {
     const { auth } = usePage().props;
     const permissions = auth?.permissions ?? [];
     const visible = items.filter((item) => item.show(permissions));
+
+    if (visible.length === 0) {
+        return null;
+    }
 
     return (
         <nav aria-label="Menu kelola" className="border-b-2 border-ink bg-canvas">

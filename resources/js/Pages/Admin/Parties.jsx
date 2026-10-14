@@ -35,7 +35,9 @@ export default function Parties({ auth, parties }) {
                         className="gov-input"
                     />
                 </div>
-                <Link href={route('admin.parties.create')} className="gov-button">Tambah partai</Link>
+                {auth?.permissions?.includes('parties.add') ? (
+                    <Link href={route('admin.parties.create')} className="gov-button">Tambah partai</Link>
+                ) : null}
             </div>
             <div className="mt-4 overflow-x-auto">
                 {rows.length > 0 ? (

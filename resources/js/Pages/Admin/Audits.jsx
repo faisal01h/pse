@@ -34,9 +34,11 @@ export default function Audits({ auth, records, audits }) {
             <Head title="Audit" />
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="max-w-2xl">Inferensi membaca catatan terbit dan membuat usulan. Usulan tidak masuk ke profil sampai diterima.</p>
-                <Link href={route('admin.audits.run')} method="post" as="button" className="gov-button">
-                    Jalankan semua
-                </Link>
+                {auth?.permissions?.includes('audits.rerun') ? (
+                    <Link href={route('admin.audits.run')} method="post" as="button" className="gov-button">
+                        Jalankan semua
+                    </Link>
+                ) : null}
             </div>
 
             <h2 className="mt-8 text-2xl font-bold">Catatan terbit</h2>
@@ -61,15 +63,17 @@ export default function Audits({ auth, records, audits }) {
                                     <td>{categoryLabel[record.category] ?? record.category}</td>
                                     <td className="whitespace-nowrap">{formatDate(record.last_run_at)}</td>
                                     <td>
-                                        <Link
-                                            href={route('admin.audits.records.run', record.id)}
-                                            method="post"
-                                            as="button"
-                                            className="gov-button"
-                                            preserveScroll
-                                        >
-                                            Jalankan
-                                        </Link>
+                                        {auth?.permissions?.includes('audits.rerun') ? (
+                                            <Link
+                                                href={route('admin.audits.records.run', record.id)}
+                                                method="post"
+                                                as="button"
+                                                className="gov-button"
+                                                preserveScroll
+                                            >
+                                                Jalankan
+                                            </Link>
+                                        ) : null}
                                     </td>
                                 </tr>
                             ))}

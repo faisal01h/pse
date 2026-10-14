@@ -2,14 +2,40 @@
 
 namespace Database\Factories;
 
+use App\Models\User;
+use Database\Seeders\AuthorizationSeeder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
  */
 class UserFactory extends Factory
 {
+    /**
+     * Configure the model factory.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            if (! app()->runningUnitTests()) {
+                return;
+            }
+
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+            if (\Spatie\Permission\Models\Permission::query()->count() === 0) {
+                (new AuthorizationSeeder)->run();
+            }
+
+            $admin = config('authorization.admin_role', 'admin');
+            if (! $user->hasRole($admin)) {
+                $user->assignRole($admin);
+            }
+        });
+    }
+
     /**
      * Define the model's default state.
      *
@@ -30,6 +56,18 @@ class UserFactory extends Factory
     public function inactive(): static
     {
         return $this->state(fn () => ['is_active' => false]);
+    }
+
+    /**
+     * User without roles or direct permissions (for authorization denial tests).
+     */
+    public function withoutAccess(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            $user->syncRoles([]);
+            $user->syncPermissions([]);
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        });
     }
 
     /**

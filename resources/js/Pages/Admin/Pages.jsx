@@ -5,7 +5,9 @@ export default function Pages({ auth, pages }) {
     return (
         <Authenticated auth={auth} header={<h1 className="text-4xl font-bold leading-tight">Halaman</h1>}>
             <Head title="Halaman" />
-            <Link href={route('admin.pages.create')} className="gov-button">Tambah halaman</Link>
+            {auth?.permissions?.includes('pages.add') ? (
+                <Link href={route('admin.pages.create')} className="gov-button">Tambah halaman</Link>
+            ) : null}
             <div className="mt-4 overflow-x-auto">
                 <table className="admin-table">
                     <thead>

@@ -28,6 +28,17 @@ trait SeedsAuthorization
     {
         $this->seedAuthorization();
 
-        return User::factory()->create($attributes);
+        return User::factory()->withoutAccess()->create($attributes);
+    }
+
+    protected function grantAdmin(User $user): User
+    {
+        $this->seedAuthorization();
+
+        if (! $user->hasRole(config('authorization.admin_role', 'admin'))) {
+            $user->assignRole(config('authorization.admin_role', 'admin'));
+        }
+
+        return $user->fresh();
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Catalog\PageMeta;
 use App\Http\Controllers\Admin\AuditController;
+use App\Http\Controllers\Admin\BusinessAdminController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Admin\PartyController;
 use App\Http\Controllers\Admin\PoliticianAdminController;
@@ -169,73 +170,144 @@ Route::post('/reports/affiliations', [BusinessAffiliationController::class, 'cre
     ->name('reports.affiliations.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', function (PoliticianController $politicians, BusinessAffiliationController $affiliations, DisputeController $disputes) {
-        return Inertia::render('Dashboard', [
-            'reports' => $politicians->pending(),
-            'affiliations' => $affiliations->pending(),
-            'decided' => $politicians->decided(),
-            'decidedAffiliations' => $affiliations->decided(),
-            'proposals' => app(ProposalQueue::class)->pending(),
-            'disputes' => $disputes->pending(),
-        ]);
-    })->name('dashboard');
+    Route::middleware('permission:checks.perform')->group(function () {
+        Route::get('/dashboard', function (PoliticianController $politicians, BusinessAffiliationController $affiliations, DisputeController $disputes) {
+            return Inertia::render('Dashboard', [
+                'reports' => $politicians->pending(),
+                'affiliations' => $affiliations->pending(),
+                'decided' => $politicians->decided(),
+                'decidedAffiliations' => $affiliations->decided(),
+                'proposals' => app(ProposalQueue::class)->pending(),
+                'disputes' => $disputes->pending(),
+            ]);
+        })->name('dashboard');
 
-    Route::post('/admin/disputes/{dispute}', [DisputeController::class, 'decide'])->name('admin.disputes.decide');
+        Route::post('/admin/disputes/{dispute}', [DisputeController::class, 'decide'])->name('admin.disputes.decide');
 
-    Route::get('/reviews/affiliations/{affiliation}', function (BusinessAffiliation $affiliation, BusinessAffiliationController $controller) {
-        return Inertia::render('AffiliationReview', $controller->review($affiliation));
-    })->name('affiliations.review');
+        Route::get('/reviews/affiliations/{affiliation}', function (BusinessAffiliation $affiliation, BusinessAffiliationController $controller) {
+            return Inertia::render('AffiliationReview', $controller->review($affiliation));
+        })->name('affiliations.review');
 
-    Route::post('/reviews/affiliations/{affiliation}', [BusinessAffiliationController::class, 'decide'])->name('affiliations.decide');
+        Route::post('/reviews/affiliations/{affiliation}', [BusinessAffiliationController::class, 'decide'])->name('affiliations.decide');
 
-    Route::get('/reviews/{record}', function (PublicRecord $record, PoliticianController $politicians) {
-        return Inertia::render('Review', $politicians->review($record));
-    })->name('reports.review');
+        Route::get('/reviews/{record}', function (PublicRecord $record, PoliticianController $politicians) {
+            return Inertia::render('Review', $politicians->review($record));
+        })->name('reports.review');
 
-    Route::post('/reviews/{record}', [PoliticianController::class, 'decide'])->name('reports.decide');
-    Route::post('/admin/proposals/{proposal}/accept', [ProposalController::class, 'accept'])->name('admin.proposals.accept');
-    Route::post('/admin/proposals/{proposal}/dismiss', [ProposalController::class, 'dismiss'])->name('admin.proposals.dismiss');
+        Route::post('/reviews/{record}', [PoliticianController::class, 'decide'])->name('reports.decide');
+        Route::post('/admin/proposals/{proposal}/accept', [ProposalController::class, 'accept'])->name('admin.proposals.accept');
+        Route::post('/admin/proposals/{proposal}/dismiss', [ProposalController::class, 'dismiss'])->name('admin.proposals.dismiss');
+    });
 
-    Route::get('/admin/audits', [AuditController::class, 'index'])->name('admin.audits.index');
-    Route::post('/admin/audits', [AuditController::class, 'runAll'])->name('admin.audits.run');
-    Route::post('/admin/audits/records/{record}', [AuditController::class, 'run'])->name('admin.audits.records.run');
+    Route::get('/admin/audits', [AuditController::class, 'index'])
+        ->middleware('permission:audits.view')
+        ->name('admin.audits.index');
+    Route::post('/admin/audits', [AuditController::class, 'runAll'])
+        ->middleware('permission:audits.rerun')
+        ->name('admin.audits.run');
+    Route::post('/admin/audits/records/{record}', [AuditController::class, 'run'])
+        ->middleware('permission:audits.rerun')
+        ->name('admin.audits.records.run');
 
-    Route::get('/admin/pages', [AdminPageController::class, 'index'])->name('admin.pages.index');
-    Route::get('/admin/pages/new', [AdminPageController::class, 'create'])->name('admin.pages.create');
-    Route::post('/admin/pages', [AdminPageController::class, 'store'])->name('admin.pages.store');
-    Route::get('/admin/pages/{page}', [AdminPageController::class, 'edit'])->name('admin.pages.edit');
-    Route::post('/admin/pages/{page}', [AdminPageController::class, 'update'])->name('admin.pages.update');
-    Route::delete('/admin/pages/{page}', [AdminPageController::class, 'destroy'])->name('admin.pages.destroy');
+    Route::get('/admin/pages', [AdminPageController::class, 'index'])
+        ->middleware('permission:pages.add|pages.edit')
+        ->name('admin.pages.index');
+    Route::get('/admin/pages/new', [AdminPageController::class, 'create'])
+        ->middleware('permission:pages.add')
+        ->name('admin.pages.create');
+    Route::post('/admin/pages', [AdminPageController::class, 'store'])
+        ->middleware('permission:pages.add')
+        ->name('admin.pages.store');
+    Route::get('/admin/pages/{page}', [AdminPageController::class, 'edit'])
+        ->middleware('permission:pages.edit')
+        ->name('admin.pages.edit');
+    Route::post('/admin/pages/{page}', [AdminPageController::class, 'update'])
+        ->middleware('permission:pages.edit')
+        ->name('admin.pages.update');
+    Route::delete('/admin/pages/{page}', [AdminPageController::class, 'destroy'])
+        ->middleware('permission:pages.edit')
+        ->name('admin.pages.destroy');
 
-    Route::get('/admin/parties', [PartyController::class, 'index'])->name('admin.parties.index');
-    Route::get('/admin/parties/suggest', [RelationshipAdminController::class, 'suggestParties'])->name('admin.parties.suggest');
-    Route::get('/admin/parties/new', [PartyController::class, 'create'])->name('admin.parties.create');
-    Route::post('/admin/parties', [PartyController::class, 'store'])->name('admin.parties.store');
-    Route::get('/admin/parties/{party}', [PartyController::class, 'edit'])->name('admin.parties.edit');
-    Route::post('/admin/parties/{party}', [PartyController::class, 'update'])->name('admin.parties.update');
-    Route::delete('/admin/parties/{party}', [PartyController::class, 'destroy'])->name('admin.parties.destroy');
-    Route::post('/admin/parties/{party}/tendencies', [RelationshipAdminController::class, 'storePartyTendency'])->name('admin.parties.tendencies.store');
-    Route::delete('/admin/parties/{party}/tendencies/{axis}', [RelationshipAdminController::class, 'destroyPartyTendency'])->name('admin.parties.tendencies.destroy');
-    Route::post('/admin/parties/{party}/links', [RelationshipAdminController::class, 'storePartyLink'])->name('admin.parties.links.store');
-    Route::delete('/admin/parties/{party}/links/{partyLink}', [RelationshipAdminController::class, 'destroyPartyLink'])->name('admin.parties.links.destroy');
-    Route::post('/admin/parties/{party}/issues', [RelationshipAdminController::class, 'storePartyStance'])->name('admin.parties.stances.store');
-    Route::delete('/admin/parties/{party}/issues/{issueStance}', [RelationshipAdminController::class, 'destroyPartyStance'])->name('admin.parties.stances.destroy');
+    Route::get('/admin/businesses', [BusinessAdminController::class, 'index'])
+        ->middleware('permission:businesses.add|businesses.edit')
+        ->name('admin.businesses.index');
+    Route::get('/admin/businesses/new', [BusinessAdminController::class, 'create'])
+        ->middleware('permission:businesses.add')
+        ->name('admin.businesses.create');
+    Route::post('/admin/businesses', [BusinessAdminController::class, 'store'])
+        ->middleware('permission:businesses.add')
+        ->name('admin.businesses.store');
+    Route::get('/admin/businesses/{business}', [BusinessAdminController::class, 'edit'])
+        ->middleware('permission:businesses.edit')
+        ->name('admin.businesses.edit');
+    Route::post('/admin/businesses/{business}', [BusinessAdminController::class, 'update'])
+        ->middleware('permission:businesses.edit')
+        ->name('admin.businesses.update');
+    Route::delete('/admin/businesses/{business}', [BusinessAdminController::class, 'destroy'])
+        ->middleware('permission:businesses.edit')
+        ->name('admin.businesses.destroy');
 
-    Route::get('/admin/politicians', [PoliticianAdminController::class, 'index'])->name('admin.politicians.index');
-    Route::get('/admin/politicians/suggest', [RelationshipAdminController::class, 'suggestPoliticians'])->name('admin.politicians.suggest');
-    Route::get('/admin/politicians/new', [PoliticianAdminController::class, 'create'])->name('admin.politicians.create');
-    Route::post('/admin/politicians', [PoliticianAdminController::class, 'store'])->name('admin.politicians.store');
-    Route::get('/admin/politicians/{politician}', [PoliticianAdminController::class, 'edit'])->name('admin.politicians.edit');
-    Route::post('/admin/politicians/{politician}', [PoliticianAdminController::class, 'update'])->name('admin.politicians.update');
-    Route::delete('/admin/politicians/{politician}', [PoliticianAdminController::class, 'destroy'])->name('admin.politicians.destroy');
-    Route::post('/admin/politicians/{politician}/tendencies', [RelationshipAdminController::class, 'storePoliticianTendency'])->name('admin.politicians.tendencies.store');
-    Route::delete('/admin/politicians/{politician}/tendencies/{axis}', [RelationshipAdminController::class, 'destroyPoliticianTendency'])->name('admin.politicians.tendencies.destroy');
-    Route::post('/admin/politicians/{politician}/links', [RelationshipAdminController::class, 'storePoliticianLink'])->name('admin.politicians.links.store');
-    Route::delete('/admin/politicians/{politician}/links/{politicianLink}', [RelationshipAdminController::class, 'destroyPoliticianLink'])->name('admin.politicians.links.destroy');
-    Route::post('/admin/politicians/{politician}/issues', [RelationshipAdminController::class, 'storePoliticianStance'])->name('admin.politicians.stances.store');
-    Route::delete('/admin/politicians/{politician}/issues/{issueStance}', [RelationshipAdminController::class, 'destroyPoliticianStance'])->name('admin.politicians.stances.destroy');
-    Route::post('/admin/politicians/{politician}/affiliations', [RelationshipAdminController::class, 'storeBusinessAffiliation'])->name('admin.politicians.affiliations.store');
-    Route::delete('/admin/politicians/{politician}/affiliations/{businessAffiliation}', [RelationshipAdminController::class, 'destroyBusinessAffiliation'])->name('admin.politicians.affiliations.destroy');
+    Route::get('/admin/parties', [PartyController::class, 'index'])
+        ->middleware('permission:parties.add|parties.edit')
+        ->name('admin.parties.index');
+    Route::get('/admin/parties/suggest', [RelationshipAdminController::class, 'suggestParties'])
+        ->middleware('permission:parties.add|parties.edit')
+        ->name('admin.parties.suggest');
+    Route::get('/admin/parties/new', [PartyController::class, 'create'])
+        ->middleware('permission:parties.add')
+        ->name('admin.parties.create');
+    Route::post('/admin/parties', [PartyController::class, 'store'])
+        ->middleware('permission:parties.add')
+        ->name('admin.parties.store');
+    Route::get('/admin/parties/{party}', [PartyController::class, 'edit'])
+        ->middleware('permission:parties.edit')
+        ->name('admin.parties.edit');
+    Route::post('/admin/parties/{party}', [PartyController::class, 'update'])
+        ->middleware('permission:parties.edit')
+        ->name('admin.parties.update');
+    Route::delete('/admin/parties/{party}', [PartyController::class, 'destroy'])
+        ->middleware('permission:parties.edit')
+        ->name('admin.parties.destroy');
+    Route::middleware('permission:parties.edit')->group(function () {
+        Route::post('/admin/parties/{party}/tendencies', [RelationshipAdminController::class, 'storePartyTendency'])->name('admin.parties.tendencies.store');
+        Route::delete('/admin/parties/{party}/tendencies/{axis}', [RelationshipAdminController::class, 'destroyPartyTendency'])->name('admin.parties.tendencies.destroy');
+        Route::post('/admin/parties/{party}/links', [RelationshipAdminController::class, 'storePartyLink'])->name('admin.parties.links.store');
+        Route::delete('/admin/parties/{party}/links/{partyLink}', [RelationshipAdminController::class, 'destroyPartyLink'])->name('admin.parties.links.destroy');
+        Route::post('/admin/parties/{party}/issues', [RelationshipAdminController::class, 'storePartyStance'])->name('admin.parties.stances.store');
+        Route::delete('/admin/parties/{party}/issues/{issueStance}', [RelationshipAdminController::class, 'destroyPartyStance'])->name('admin.parties.stances.destroy');
+    });
+
+    Route::get('/admin/politicians', [PoliticianAdminController::class, 'index'])
+        ->middleware('permission:figures.add|figures.edit')
+        ->name('admin.politicians.index');
+    Route::get('/admin/politicians/suggest', [RelationshipAdminController::class, 'suggestPoliticians'])
+        ->middleware('permission:figures.add|figures.edit')
+        ->name('admin.politicians.suggest');
+    Route::get('/admin/politicians/new', [PoliticianAdminController::class, 'create'])
+        ->middleware('permission:figures.add')
+        ->name('admin.politicians.create');
+    Route::post('/admin/politicians', [PoliticianAdminController::class, 'store'])
+        ->middleware('permission:figures.add')
+        ->name('admin.politicians.store');
+    Route::get('/admin/politicians/{politician}', [PoliticianAdminController::class, 'edit'])
+        ->middleware('permission:figures.edit')
+        ->name('admin.politicians.edit');
+    Route::post('/admin/politicians/{politician}', [PoliticianAdminController::class, 'update'])
+        ->middleware('permission:figures.edit')
+        ->name('admin.politicians.update');
+    Route::delete('/admin/politicians/{politician}', [PoliticianAdminController::class, 'destroy'])
+        ->middleware('permission:figures.edit')
+        ->name('admin.politicians.destroy');
+    Route::middleware('permission:figures.edit')->group(function () {
+        Route::post('/admin/politicians/{politician}/tendencies', [RelationshipAdminController::class, 'storePoliticianTendency'])->name('admin.politicians.tendencies.store');
+        Route::delete('/admin/politicians/{politician}/tendencies/{axis}', [RelationshipAdminController::class, 'destroyPoliticianTendency'])->name('admin.politicians.tendencies.destroy');
+        Route::post('/admin/politicians/{politician}/links', [RelationshipAdminController::class, 'storePoliticianLink'])->name('admin.politicians.links.store');
+        Route::delete('/admin/politicians/{politician}/links/{politicianLink}', [RelationshipAdminController::class, 'destroyPoliticianLink'])->name('admin.politicians.links.destroy');
+        Route::post('/admin/politicians/{politician}/issues', [RelationshipAdminController::class, 'storePoliticianStance'])->name('admin.politicians.stances.store');
+        Route::delete('/admin/politicians/{politician}/issues/{issueStance}', [RelationshipAdminController::class, 'destroyPoliticianStance'])->name('admin.politicians.stances.destroy');
+        Route::post('/admin/politicians/{politician}/affiliations', [RelationshipAdminController::class, 'storeBusinessAffiliation'])->name('admin.politicians.affiliations.store');
+        Route::delete('/admin/politicians/{politician}/affiliations/{businessAffiliation}', [RelationshipAdminController::class, 'destroyBusinessAffiliation'])->name('admin.politicians.affiliations.destroy');
+    });
 
     Route::get('/admin/roles', [RoleController::class, 'index'])
         ->middleware('permission:roles.view')

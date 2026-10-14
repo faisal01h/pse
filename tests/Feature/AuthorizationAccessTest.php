@@ -68,7 +68,23 @@ class AuthorizationAccessTest extends TestCase
 
         $this->actingAs($user)->get(route('admin.roles.index'))->assertForbidden();
         $this->actingAs($user)->get(route('admin.users.index'))->assertForbidden();
-        $this->actingAs($user)->get(route('dashboard'))->assertOk();
+        $this->actingAs($user)->get(route('dashboard'))->assertForbidden();
+        $this->actingAs($user)->get(route('admin.politicians.index'))->assertForbidden();
+        $this->actingAs($user)->get(route('admin.audits.index'))->assertForbidden();
+    }
+
+    public function test_granular_catalog_permissions_gate_routes(): void
+    {
+        $user = $this->makePlainUser();
+        $user->givePermissionTo('figures.edit');
+
+        $this->actingAs($user)->get(route('admin.politicians.index'))->assertOk();
+        $this->actingAs($user)->get(route('admin.politicians.create'))->assertForbidden();
+        $this->actingAs($user)->get(route('admin.parties.index'))->assertForbidden();
+        $this->actingAs($user)->get(route('dashboard'))->assertForbidden();
+
+        $user->givePermissionTo('checks.perform');
+        $this->actingAs($user->fresh())->get(route('dashboard'))->assertOk();
     }
 
     public function test_inactive_admin_cannot_manage_access(): void

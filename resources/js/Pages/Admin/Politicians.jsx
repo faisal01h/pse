@@ -40,7 +40,9 @@ export default function Politicians({ auth, politicians, filters, counts }) {
                     </div>
                     <button className="gov-button">Cari</button>
                 </form>
-                <Link href={route('admin.politicians.create')} className="gov-button">Tambah politisi</Link>
+                {auth?.permissions?.includes('figures.add') ? (
+                    <Link href={route('admin.politicians.create')} className="gov-button">Tambah politisi</Link>
+                ) : null}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
                 {chips.map((chip) => (
