@@ -1,4 +1,4 @@
-export default function Spectrum({ label, left, right, score }) {
+export default function Spectrum({ label, left, right, score, scoreSuffix = 'dari 100' }) {
     const value = Math.min(100, Math.max(0, Number(score) || 0));
 
     return (
@@ -11,7 +11,7 @@ export default function Spectrum({ label, left, right, score }) {
             <div
                 className="relative mt-2 h-3 border-2 border-ink bg-canvas"
                 role="meter"
-                aria-label={label ? `${label}: ${value} dari 100` : `${value} dari 100`}
+                aria-label={label ? `${label}: ${value} ${scoreSuffix}` : `${value} ${scoreSuffix}`}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={value}
@@ -21,7 +21,7 @@ export default function Spectrum({ label, left, right, score }) {
                     style={{ left: `${value}%` }}
                 />
             </div>
-            <p className="mt-2 text-muted">{value} dari 100</p>
+            <p className="mt-2 text-muted">{value} {scoreSuffix}</p>
         </div>
     );
 }

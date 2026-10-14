@@ -2,11 +2,11 @@ import { Link, usePage } from '@inertiajs/inertia-react';
 
 const NAV = [
     { href: '/scipol', label: 'Hub', match: (url) => url === '/scipol' || url === '/scipol/' },
-    { href: '/scipol/bandingkan', label: 'Bandingkan', match: (url) => url.startsWith('/scipol/bandingkan') },
-    { href: '/scipol/isu', label: 'Peta isu', match: (url) => url.startsWith('/scipol/isu') },
-    { href: '/scipol/afiliasi', label: 'Afiliasi', match: (url) => url.startsWith('/scipol/afiliasi') },
-    { href: '/scipol/topik', label: 'Topik', match: (url) => url.startsWith('/scipol/topik') },
-    { href: '/scipol/latihan', label: 'Latihan', match: (url) => url.startsWith('/scipol/latihan') },
+    { href: '/scipol/bandingkan', label: 'Compare', match: (url) => url.startsWith('/scipol/bandingkan') },
+    { href: '/scipol/isu', label: 'Issue map', match: (url) => url.startsWith('/scipol/isu') },
+    { href: '/scipol/afiliasi', label: 'Affiliations', match: (url) => url.startsWith('/scipol/afiliasi') },
+    { href: '/scipol/topik', label: 'Topics', match: (url) => url.startsWith('/scipol/topik') },
+    { href: '/scipol/latihan', label: 'Practice', match: (url) => url.startsWith('/scipol/latihan') },
 ];
 
 export default function SciPol({ children, title }) {
@@ -22,19 +22,19 @@ export default function SciPol({ children, title }) {
                             SciPol
                         </Link>
                         <span className="truncate text-xs text-white/70">
-                            ruang kerja riset · {title || 'analisis berbasis arsip'}
+                            research workspace · {title || 'archive-based analysis'}
                         </span>
                     </div>
                     <Link href="/" className="shrink-0 text-xs font-bold text-white/90 underline">
-                        Kembali ke PolitiSEE
+                        Back to PolitiSEE
                     </Link>
                 </div>
             </header>
 
             <div className="mx-auto flex max-w-[1280px] flex-col gap-0 lg:flex-row">
                 <aside className="border-b border-ink/15 bg-white lg:w-52 lg:shrink-0 lg:border-b-0 lg:border-r">
-                    <nav aria-label="Alat SciPol" className="sticky top-0 p-3">
-                        <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted">Alat</p>
+                    <nav aria-label="SciPol tools" className="sticky top-0 p-3">
+                        <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted">Tools</p>
                         <ul className="flex flex-wrap gap-1 lg:flex-col lg:gap-0.5">
                             {NAV.map((item) => {
                                 const active = item.match(path);
@@ -55,7 +55,7 @@ export default function SciPol({ children, title }) {
                             })}
                         </ul>
                         <p className="mt-4 border-t border-ink/10 px-2 pt-3 text-[11px] text-muted">
-                            Data bertanda <span className="font-semibold text-ink">tendensi terkode</span> — bukan vonis.
+                            Analysis over published PolitiSEE archive data.
                         </p>
                     </nav>
                 </aside>
@@ -100,9 +100,9 @@ export function SciPolTd({ children, className = '', colSpan }) {
 
 export function CategoryBadge({ category }) {
     const labels = {
-        statement: 'Pernyataan',
-        allegation: 'Dugaan',
-        conviction: 'Vonis',
+        statement: 'Statement',
+        allegation: 'Allegation',
+        conviction: 'Conviction',
     };
     const tones = {
         statement: 'bg-[#e8f1ff] text-[#1a3a6b]',
@@ -121,14 +121,14 @@ export function ExportButton({ href, disabled }) {
     if (disabled) {
         return (
             <span className="inline-block cursor-not-allowed bg-ink/20 px-3 py-1.5 text-sm font-bold text-ink/50">
-                Ekspor XLSX
+                Export XLSX
             </span>
         );
     }
 
     return (
         <a href={href} className="inline-block bg-ink px-3 py-1.5 text-sm font-bold text-white no-underline hover:bg-brand">
-            Ekspor XLSX
+            Export XLSX
         </a>
     );
 }

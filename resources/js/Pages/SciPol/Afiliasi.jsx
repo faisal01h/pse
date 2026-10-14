@@ -11,63 +11,63 @@ export default function Afiliasi({
     export_url = null,
 }) {
     return (
-        <SciPol title="afiliasi">
-            <Head title="SciPol · Afiliasi" />
+        <SciPol title="affiliations">
+            <Head title="SciPol · Affiliations" />
 
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold">Jejaring afiliasi</h1>
+                    <h1 className="text-2xl font-bold">Affiliation network</h1>
                     <p className="mt-1 text-sm text-muted">
-                        Kepemilikan dan endorsemen bisnis yang sudah diterbitkan.
+                        Published ownership and endorsement ties to businesses.
                     </p>
                 </div>
                 <ExportButton href={export_url} disabled={!export_url} />
             </div>
 
             <SciPolNotice>
-                Setiap baris wajib punya sumber. Filter membantu studi ekonomi politik per sektor.
+                Each row includes a source. Filters support political-economy work by sector.
             </SciPolNotice>
 
             <form method="get" action="/scipol/afiliasi" className="mb-4 grid gap-2 border border-ink/15 bg-white p-3 sm:grid-cols-4">
                 <div>
-                    <label htmlFor="q" className="mb-1 block text-[11px] font-bold uppercase text-muted">Cari</label>
+                    <label htmlFor="q" className="mb-1 block text-[11px] font-bold uppercase text-muted">Search</label>
                     <input id="q" name="q" defaultValue={filters.q || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm" />
                 </div>
                 <div>
-                    <label htmlFor="sector" className="mb-1 block text-[11px] font-bold uppercase text-muted">Sektor</label>
+                    <label htmlFor="sector" className="mb-1 block text-[11px] font-bold uppercase text-muted">Sector</label>
                     <select id="sector" name="sector" defaultValue={filters.sector || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm">
-                        <option value="">Semua</option>
+                        <option value="">All</option>
                         {sectors.map((sector) => (
                             <option key={sector} value={sector}>{sector}</option>
                         ))}
                     </select>
                 </div>
                 <div>
-                    <label htmlFor="type" className="mb-1 block text-[11px] font-bold uppercase text-muted">Jenis</label>
+                    <label htmlFor="type" className="mb-1 block text-[11px] font-bold uppercase text-muted">Type</label>
                     <select id="type" name="type" defaultValue={filters.type || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm">
-                        <option value="">Semua</option>
+                        <option value="">All</option>
                         {types.map((item) => (
                             <option key={item.key} value={item.key}>{item.label}</option>
                         ))}
                     </select>
                 </div>
                 <div className="flex items-end">
-                    <button type="submit" className="bg-ink px-3 py-1.5 text-sm font-bold text-white">Terapkan</button>
+                    <button type="submit" className="bg-ink px-3 py-1.5 text-sm font-bold text-white">Apply</button>
                 </div>
             </form>
 
             {items.length === 0 ? (
-                <p className="text-sm text-muted">Tidak ada afiliasi yang cocok.</p>
+                <p className="text-sm text-muted">No affiliations match.</p>
             ) : (
                 <SciPolTable>
                     <thead>
                         <tr>
-                            <SciPolTh>Politisi</SciPolTh>
-                            <SciPolTh>Bisnis</SciPolTh>
-                            <SciPolTh>Sektor</SciPolTh>
-                            <SciPolTh>Jenis</SciPolTh>
+                            <SciPolTh>Politician</SciPolTh>
+                            <SciPolTh>Business</SciPolTh>
+                            <SciPolTh>Sector</SciPolTh>
+                            <SciPolTh>Type</SciPolTh>
                             <SciPolTh>%</SciPolTh>
-                            <SciPolTh>Sumber</SciPolTh>
+                            <SciPolTh>Source</SciPolTh>
                         </tr>
                     </thead>
                     <tbody>
@@ -85,7 +85,7 @@ export default function Afiliasi({
                                 <SciPolTd>
                                     {row.source_url ? (
                                         <a href={row.source_url} target="_blank" rel="noreferrer">
-                                            {row.source_type || 'sumber'}
+                                            {row.source_type || 'source'}
                                         </a>
                                     ) : '—'}
                                 </SciPolTd>
@@ -103,6 +103,12 @@ export default function Afiliasi({
                     sector: filters.sector || '',
                     type: filters.type || '',
                     politician: filters.politician || '',
+                }}
+                labels={{
+                    prev: 'Previous',
+                    next: 'Next',
+                    page: (current, last) => `Page ${current} of ${last}`,
+                    aria: 'Pagination',
                 }}
             />
         </SciPol>

@@ -10,19 +10,18 @@ export default function Index({ tools = [], codebook = [] }) {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">SciPol</h1>
                     <p className="mt-1 max-w-2xl text-sm text-muted">
-                        Ruang kerja riset untuk mahasiswa dan akademisi: baca bukti sebelum menarik kesimpulan.
-                        Data di sini adalah arsip terbit PolitiSEE — tendensi terkode, bukan peringkat atau vonis.
+                        A research workspace for students and academics: read the evidence before drawing conclusions.
+                        Data here comes from the published PolitiSEE archive.
                     </p>
                 </div>
             </div>
 
             <SciPolNotice>
-                <strong>Metode:</strong> sumber → klaim terdokumentasi → struktur (sumbu / sikap / tautan) → interpretasi Anda.
-                Allegation bukan conviction; skor spektrum bukan kebenaran mutlak.
+                <strong>Method:</strong> sources → documented claims → structure (axes / stances / links) → your interpretation.
             </SciPolNotice>
 
             <section className="mb-8">
-                <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">Alat</h2>
+                <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">Tools</h2>
                 <div className="grid gap-2 sm:grid-cols-2">
                     {tools.map((tool) => (
                         <Link
@@ -40,15 +39,15 @@ export default function Index({ tools = [], codebook = [] }) {
             <section>
                 <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">Codebook</h2>
                 <p className="mb-2 text-sm text-muted">
-                    Definisi variabel untuk ekstrak XLSX dan pembacaan matriks. Ekspor selalu menyertakan lembar Codebook.
+                    Variable definitions for XLSX extracts and matrix reading. Every export includes a Codebook sheet.
                 </p>
                 <SciPolTable>
                     <thead>
                         <tr>
                             <SciPolTh>Field</SciPolTh>
-                            <SciPolTh>Tipe</SciPolTh>
-                            <SciPolTh>Nilai</SciPolTh>
-                            <SciPolTh>Deskripsi</SciPolTh>
+                            <SciPolTh>Type</SciPolTh>
+                            <SciPolTh>Values</SciPolTh>
+                            <SciPolTh>Description</SciPolTh>
                         </tr>
                     </thead>
                     <tbody>

@@ -1,29 +1,25 @@
 import { Head, Link } from '@inertiajs/inertia-react';
-import SciPol, { SciPolNotice, SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
+import SciPol, { SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
 
 export default function Isu({ issues = [] }) {
     return (
-        <SciPol title="peta isu">
-            <Head title="SciPol · Peta isu" />
+        <SciPol title="issue map">
+            <Head title="SciPol · Issue map" />
 
-            <h1 className="text-2xl font-bold">Peta isu</h1>
+            <h1 className="text-2xl font-bold">Issue map</h1>
             <p className="mt-1 mb-4 text-sm text-muted">
-                Daftar isu dengan hitungan sikap dari politisi terbit dan partai. Buka isu untuk crosstab posisi.
+                Issues with stance counts from published politicians and parties. Open an issue for a position crosstab.
             </p>
 
-            <SciPolNotice>
-                Posisi <strong>dukung / tolak / campuran</strong> adalah tendensi terkode dari sumber — bukan skor kebenaran.
-            </SciPolNotice>
-
             {issues.length === 0 ? (
-                <p className="text-sm text-muted">Belum ada isu dengan sikap terbit.</p>
+                <p className="text-sm text-muted">No issues with published stances yet.</p>
             ) : (
                 <SciPolTable>
                     <thead>
                         <tr>
-                            <SciPolTh>Isu</SciPolTh>
-                            <SciPolTh className="w-28 text-right">Politisi</SciPolTh>
-                            <SciPolTh className="w-28 text-right">Partai</SciPolTh>
+                            <SciPolTh>Issue</SciPolTh>
+                            <SciPolTh className="w-28 text-right">Politicians</SciPolTh>
+                            <SciPolTh className="w-28 text-right">Parties</SciPolTh>
                         </tr>
                     </thead>
                     <tbody>

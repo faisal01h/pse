@@ -16,7 +16,10 @@ use Illuminate\Http\Request;
 
 class Workspace
 {
-    public function __construct(private RelationshipGraph $graph) {}
+    public function __construct(
+        private RelationshipGraph $graph,
+        private MaskedId $maskedId,
+    ) {}
 
     /**
      * @return list<array{field: string, type: string, values: string, description: string}>
@@ -27,12 +30,31 @@ class Workspace
     }
 
     /**
+     * @param  list<string>  $tokens
+     * @return list<int>
+     */
+    public function resolveTokens(array $tokens, string $type, int $max = 3): array
+    {
+        return $this->maskedId->decodeMany($tokens, $type, $max);
+    }
+
+    public function unmask(?string $token, string $type): ?int
+    {
+        if ($token === null || $token === '') {
+            return null;
+        }
+
+        return $this->maskedId->decode($token, $type);
+    }
+
+    /**
      * @param  list<int>  $ids
      * @return list<array<string, mixed>>
      */
     public function comparePoliticians(array $ids): array
     {
-        $ids = $this->normalizeIds($ids, 3);
+        $ids = array_values(array_unique(array_filter($ids, fn (int $id) => $id > 0)));
+        $ids = array_slice($ids, 0, 3);
         if ($ids === []) {
             return [];
         }
@@ -59,7 +81,8 @@ class Workspace
      */
     public function compareParties(array $ids): array
     {
-        $ids = $this->normalizeIds($ids, 3);
+        $ids = array_values(array_unique(array_filter($ids, fn (int $id) => $id > 0)));
+        $ids = array_slice($ids, 0, 3);
         if ($ids === []) {
             return [];
         }
@@ -91,12 +114,12 @@ class Workspace
             ->orderBy('name')
             ->get()
             ->map(fn (Issue $issue) => [
-                'id' => $issue->id,
+                'id' => $this->maskedId->encode(MaskedId::TYPE_ISSUE, $issue->id),
                 'name' => $issue->name,
                 'description' => $issue->description,
                 'politician_stance_count' => (int) $issue->politician_stance_count,
                 'party_stance_count' => (int) $issue->party_stance_count,
-                'href' => route('scipol.issues.show', $issue),
+                'href' => route('scipol.issues.show', $this->maskedId->encode(MaskedId::TYPE_ISSUE, $issue->id)),
             ])
             ->all();
     }
@@ -125,14 +148,14 @@ class Workspace
                 }
                 $subject = [
                     'kind' => 'politician',
-                    'id' => $stance->politician->id,
+                    'id' => $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $stance->politician->id),
                     'name' => $stance->politician->name,
                     'href' => route('politicians.show', $stance->politician->id),
                 ];
             } elseif ($stance->party_id && $stance->party) {
                 $subject = [
                     'kind' => 'party',
-                    'id' => $stance->party->id,
+                    'id' => $this->maskedId->encode(MaskedId::TYPE_PARTY, $stance->party->id),
                     'name' => $stance->party->name,
                     'href' => route('parties.show', $stance->party->id),
                 ];
@@ -148,7 +171,7 @@ class Workspace
             $groups[$position][] = [
                 'subject' => $subject,
                 'position' => $position,
-                'position_label' => $stance->positionLabel(),
+                'position_label' => Labels::stance($stance->position),
                 'note' => $stance->note,
                 'source_url' => $stance->source_url,
                 'source_type' => $stance->source_type,
@@ -158,12 +181,12 @@ class Workspace
 
         return [
             'issue' => [
-                'id' => $issue->id,
+                'id' => $this->maskedId->encode(MaskedId::TYPE_ISSUE, $issue->id),
                 'name' => $issue->name,
                 'description' => $issue->description,
             ],
             'groups' => $groups,
-            'position_labels' => IssueStance::LABELS,
+            'position_labels' => Labels::STANCES,
         ];
     }
 
@@ -174,7 +197,8 @@ class Workspace
     {
         $sector = trim((string) $request->query('sector', ''));
         $type = trim((string) $request->query('type', ''));
-        $politicianId = $request->filled('politician') ? $request->integer('politician') : null;
+        $politicianToken = trim((string) $request->query('politician', ''));
+        $politicianId = $this->unmask($politicianToken !== '' ? $politicianToken : null, MaskedId::TYPE_POLITICIAN);
         $q = trim((string) $request->query('q', ''));
 
         $page = BusinessAffiliation::query()
@@ -207,21 +231,21 @@ class Workspace
 
         return [
             'items' => $page->getCollection()->map(fn (BusinessAffiliation $row) => [
-                'id' => $row->id,
+                'id' => $this->maskedId->encode(MaskedId::TYPE_AFFILIATION, $row->id),
                 'type' => $row->type,
-                'type_label' => $row->typeLabel(),
+                'type_label' => Labels::affiliation($row->type),
                 'ownership_percent' => $row->ownership_percent,
                 'summary' => $row->summary,
                 'source_url' => $row->source_url,
                 'source_type' => $row->source_type,
                 'occurred_on' => optional($row->occurred_on)->toDateString(),
                 'politician' => [
-                    'id' => $row->politician->id,
+                    'id' => $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $row->politician->id),
                     'name' => $row->politician->name,
                     'href' => route('politicians.show', $row->politician->id),
                 ],
                 'business' => [
-                    'id' => $row->business->id,
+                    'id' => $this->maskedId->encode(MaskedId::TYPE_BUSINESS, $row->business->id),
                     'name' => $row->business->name,
                     'sector' => $row->business->sector,
                     'href' => route('businesses.show', $row->business->id),
@@ -231,11 +255,11 @@ class Workspace
             'filters' => [
                 'sector' => $sector,
                 'type' => $type,
-                'politician' => $politicianId,
+                'politician' => $politicianId ? $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $politicianId) : null,
                 'q' => $q,
             ],
             'sectors' => $sectors,
-            'types' => collect(BusinessAffiliation::LABELS)
+            'types' => collect(Labels::AFFILIATIONS)
                 ->map(fn (string $label, string $key) => ['key' => $key, 'label' => $label])
                 ->values()
                 ->all(),
@@ -247,7 +271,8 @@ class Workspace
      */
     public function topicArchive(Request $request): array
     {
-        $topicId = $request->filled('topic') ? $request->integer('topic') : null;
+        $topicToken = trim((string) $request->query('topic', ''));
+        $topicId = $this->unmask($topicToken !== '' ? $topicToken : null, MaskedId::TYPE_TOPIC);
         $category = trim((string) $request->query('category', ''));
         $q = trim((string) $request->query('q', ''));
 
@@ -269,18 +294,12 @@ class Workspace
             ->orderByDesc('id')
             ->paginate(40);
 
-        $categoryLabels = [
-            PublicRecord::CATEGORY_STATEMENT => 'Pernyataan',
-            PublicRecord::CATEGORY_ALLEGATION => 'Dugaan',
-            PublicRecord::CATEGORY_CONVICTION => 'Vonis',
-        ];
-
         return [
             'items' => $page->getCollection()->map(function (PublicRecord $record) {
                 $date = $record->occurred_on ?? $record->reviewed_at ?? $record->created_at;
 
                 return [
-                    'id' => $record->id,
+                    'id' => $this->maskedId->encode(MaskedId::TYPE_RECORD, $record->id),
                     'category' => $record->category,
                     'quote' => $record->quote,
                     'summary' => $record->summary,
@@ -289,40 +308,31 @@ class Workspace
                     'date' => optional($date)->toDateString(),
                     'href' => route('politicians.show', $record->politician_id).'#record-'.$record->id,
                     'politician' => [
-                        'id' => $record->politician->id,
+                        'id' => $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $record->politician->id),
                         'name' => $record->politician->name,
                         'href' => route('politicians.show', $record->politician->id),
                     ],
-                    'topics' => $record->topics->map->only(['id', 'name'])->values()->all(),
+                    'topics' => $record->topics->map(fn (Topic $topic) => [
+                        'id' => $this->maskedId->encode(MaskedId::TYPE_TOPIC, $topic->id),
+                        'name' => $topic->name,
+                    ])->values()->all(),
                 ];
             })->values()->all(),
             'meta' => PageMeta::from($page),
             'filters' => [
-                'topic' => $topicId,
+                'topic' => $topicId ? $this->maskedId->encode(MaskedId::TYPE_TOPIC, $topicId) : null,
                 'category' => $category,
                 'q' => $q,
             ],
-            'topics' => Topic::query()->orderBy('name')->get(['id', 'name'])->map->only(['id', 'name'])->values()->all(),
-            'categories' => collect($categoryLabels)
+            'topics' => Topic::query()->orderBy('name')->get(['id', 'name'])->map(fn (Topic $topic) => [
+                'id' => $this->maskedId->encode(MaskedId::TYPE_TOPIC, $topic->id),
+                'name' => $topic->name,
+            ])->values()->all(),
+            'categories' => collect(Labels::RECORD_CATEGORIES)
                 ->map(fn (string $label, string $key) => ['key' => $key, 'label' => $label])
                 ->values()
                 ->all(),
         ];
-    }
-
-    /**
-     * @param  list<int>  $ids
-     * @return list<int>
-     */
-    public function normalizeIds(array $ids, int $max = 3): array
-    {
-        return collect($ids)
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn (int $id) => $id > 0)
-            ->unique()
-            ->take($max)
-            ->values()
-            ->all();
     }
 
     /**
@@ -344,16 +354,21 @@ class Workspace
 
         return [
             'kind' => 'politician',
-            'id' => $politician->id,
+            'id' => $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $politician->id),
             'name' => $politician->name,
             'position' => $politician->position,
             'institution' => $politician->institution,
             'href' => route('politicians.show', $politician),
-            'party' => $politician->party?->only(['id', 'name', 'logo_url']),
-            'tendencies' => $politician->getAttribute('tendencies') ?? [],
-            'issue_stances' => $politician->getAttribute('issue_stances') ?? [],
-            'connections' => $politician->getAttribute('connections') ?? [],
-            'business_affiliations' => $politician->getAttribute('business_affiliations') ?? [],
+            'party' => $politician->party ? [
+                'name' => $politician->party->name,
+                'logo_url' => $politician->party->logo_url,
+            ] : null,
+            'tendencies' => Labels::englishTendencies($politician->getAttribute('tendencies') ?? []),
+            'issue_stances' => Labels::englishStances($politician->getAttribute('issue_stances') ?? []),
+            'connections' => $this->maskConnections($politician->getAttribute('connections') ?? [], MaskedId::TYPE_POLITICIAN),
+            'business_affiliations' => $this->maskAffiliationRows(
+                Labels::englishAffiliations($politician->getAttribute('business_affiliations') ?? [])
+            ),
             'record_counts' => $counts,
             'record_total' => array_sum($counts),
         ];
@@ -366,17 +381,47 @@ class Workspace
     {
         return [
             'kind' => 'party',
-            'id' => $party->id,
+            'id' => $this->maskedId->encode(MaskedId::TYPE_PARTY, $party->id),
             'name' => $party->name,
             'logo_url' => $party->logo_url,
             'href' => route('parties.show', $party),
-            'tendencies' => $party->getAttribute('tendencies') ?? [],
-            'issue_stances' => $party->getAttribute('issue_stances') ?? [],
-            'connections' => $party->getAttribute('connections') ?? [],
+            'tendencies' => Labels::englishTendencies($party->getAttribute('tendencies') ?? []),
+            'issue_stances' => Labels::englishStances($party->getAttribute('issue_stances') ?? []),
+            'connections' => $this->maskConnections($party->getAttribute('connections') ?? [], MaskedId::TYPE_PARTY),
             'business_affiliations' => [],
             'record_counts' => null,
             'record_total' => null,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $connections
+     * @return list<array<string, mixed>>
+     */
+    private function maskConnections(array $connections, string $otherType): array
+    {
+        return array_map(function (array $connection) use ($otherType) {
+            if (isset($connection['other']['id'])) {
+                $connection['other']['id'] = $this->maskedId->encode($otherType, (int) $connection['other']['id']);
+            }
+
+            return $connection;
+        }, $connections);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $affiliations
+     * @return list<array<string, mixed>>
+     */
+    private function maskAffiliationRows(array $affiliations): array
+    {
+        return array_map(function (array $row) {
+            if (isset($row['business']['id'])) {
+                $row['business']['id'] = $this->maskedId->encode(MaskedId::TYPE_BUSINESS, (int) $row['business']['id']);
+            }
+
+            return $row;
+        }, $affiliations);
     }
 
     /**
@@ -405,18 +450,21 @@ class Workspace
 
     private function bundleFromCompare(Request $request): array
     {
-        $type = $request->query('type') === 'party' ? 'party' : 'politician';
-        $ids = $this->normalizeIds(explode(',', (string) $request->query('ids', '')), 3);
-        $subjects = $type === 'party'
+        $type = $request->query('type') === 'party' ? MaskedId::TYPE_PARTY : MaskedId::TYPE_POLITICIAN;
+        $ids = $this->resolveTokens(explode(',', (string) $request->query('ids', '')), $type, 3);
+        $subjects = $type === MaskedId::TYPE_PARTY
             ? $this->compareParties($ids)
             : $this->comparePoliticians($ids);
+        $masked = array_map(fn (array $subject) => $subject['id'], $subjects);
 
-        return $this->flattenSubjects($subjects, "compare type={$type} ids=".implode(',', $ids));
+        return $this->flattenSubjects($subjects, 'compare type='.$type.' refs='.implode(',', $masked));
     }
 
     private function bundleFromIssue(Request $request): array
     {
-        $issue = Issue::query()->findOrFail($request->integer('issue'));
+        $issueId = $this->unmask((string) $request->query('issue', ''), MaskedId::TYPE_ISSUE);
+        abort_unless($issueId, 404);
+        $issue = Issue::query()->findOrFail($issueId);
         $map = $this->issueMap($issue);
         $subjects = [];
         $stances = [];
@@ -447,7 +495,7 @@ class Workspace
         }
 
         return [
-            'criteria' => 'issue id='.$issue->id.' name='.$issue->name,
+            'criteria' => 'issue ref='.$map['issue']['id'].' name='.$issue->name,
             'subjects' => array_values($subjects),
             'axes' => $axes,
             'stances' => $stances,
@@ -460,7 +508,7 @@ class Workspace
     {
         $sector = trim((string) $request->query('sector', ''));
         $type = trim((string) $request->query('type', ''));
-        $politicianId = $request->filled('politician') ? $request->integer('politician') : null;
+        $politicianId = $this->unmask(trim((string) $request->query('politician', '')) ?: null, MaskedId::TYPE_POLITICIAN);
         $q = trim((string) $request->query('q', ''));
 
         $rows = BusinessAffiliation::query()
@@ -485,17 +533,18 @@ class Workspace
         $subjects = [];
         $affiliations = [];
         foreach ($rows as $row) {
-            $subjects['politician:'.$row->politician_id] = [
+            $politicianRef = $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $row->politician_id);
+            $subjects['politician:'.$politicianRef] = [
                 'kind' => 'politician',
-                'id' => $row->politician_id,
+                'id' => $politicianRef,
                 'name' => $row->politician?->name,
                 'href' => route('politicians.show', $row->politician_id),
             ];
             $affiliations[] = [
                 'subject_kind' => 'politician',
-                'subject_id' => $row->politician_id,
+                'subject_id' => $politicianRef,
                 'subject_name' => $row->politician?->name,
-                'business_id' => $row->business_id,
+                'business_id' => $this->maskedId->encode(MaskedId::TYPE_BUSINESS, $row->business_id),
                 'business_name' => $row->business?->name,
                 'sector' => $row->business?->sector,
                 'type' => $row->type,
@@ -519,7 +568,7 @@ class Workspace
 
     private function bundleFromTopics(Request $request): array
     {
-        $topicId = $request->filled('topic') ? $request->integer('topic') : null;
+        $topicId = $this->unmask(trim((string) $request->query('topic', '')) ?: null, MaskedId::TYPE_TOPIC);
         $category = trim((string) $request->query('category', ''));
         $q = trim((string) $request->query('q', ''));
 
@@ -544,17 +593,18 @@ class Workspace
         $subjects = [];
         $records = [];
         foreach ($rows as $record) {
-            $subjects['politician:'.$record->politician_id] = [
+            $politicianRef = $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $record->politician_id);
+            $subjects['politician:'.$politicianRef] = [
                 'kind' => 'politician',
-                'id' => $record->politician_id,
+                'id' => $politicianRef,
                 'name' => $record->politician?->name,
                 'href' => route('politicians.show', $record->politician_id),
             ];
             $date = $record->occurred_on ?? $record->reviewed_at ?? $record->created_at;
             $records[] = [
-                'record_id' => $record->id,
+                'record_id' => $this->maskedId->encode(MaskedId::TYPE_RECORD, $record->id),
                 'subject_kind' => 'politician',
-                'subject_id' => $record->politician_id,
+                'subject_id' => $politicianRef,
                 'subject_name' => $record->politician?->name,
                 'category' => $record->category,
                 'summary' => $record->summary,
@@ -566,8 +616,10 @@ class Workspace
             ];
         }
 
+        $topicRef = $topicId ? $this->maskedId->encode(MaskedId::TYPE_TOPIC, $topicId) : '';
+
         return [
-            'criteria' => 'topics topic='.$topicId.' category='.$category.' q='.$q,
+            'criteria' => 'topics topic='.$topicRef.' category='.$category.' q='.$q,
             'subjects' => array_values($subjects),
             'axes' => [],
             'stances' => [],

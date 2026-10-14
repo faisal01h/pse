@@ -5,11 +5,11 @@ export default function IsuShow({ issue, groups = {}, position_labels = {}, expo
     const order = ['dukung', 'tolak', 'campuran'];
 
     return (
-        <SciPol title="peta isu">
+        <SciPol title="issue map">
             <Head title={`SciPol · ${issue.name}`} />
 
             <p className="mb-2 text-sm">
-                <Link href="/scipol/isu" className="underline">← Peta isu</Link>
+                <Link href="/scipol/isu" className="underline">← Issue map</Link>
             </p>
 
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -21,7 +21,7 @@ export default function IsuShow({ issue, groups = {}, position_labels = {}, expo
             </div>
 
             <SciPolNotice>
-                Hanya subjek terbit. Setiap baris menyertakan tautan sumber bila tersedia.
+                Published subjects only. Each row includes a source link when available.
             </SciPolNotice>
 
             {order.map((key) => {
@@ -33,15 +33,15 @@ export default function IsuShow({ issue, groups = {}, position_labels = {}, expo
                             <span className="ml-2 font-normal normal-case">({rows.length})</span>
                         </h2>
                         {rows.length === 0 ? (
-                            <p className="text-sm text-muted">Tidak ada subjek pada posisi ini.</p>
+                            <p className="text-sm text-muted">No subjects in this position.</p>
                         ) : (
                             <SciPolTable>
                                 <thead>
                                     <tr>
-                                        <SciPolTh>Subjek</SciPolTh>
-                                        <SciPolTh>Jenis</SciPolTh>
-                                        <SciPolTh>Catatan</SciPolTh>
-                                        <SciPolTh>Sumber</SciPolTh>
+                                        <SciPolTh>Subject</SciPolTh>
+                                        <SciPolTh>Kind</SciPolTh>
+                                        <SciPolTh>Note</SciPolTh>
+                                        <SciPolTh>Source</SciPolTh>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -55,7 +55,7 @@ export default function IsuShow({ issue, groups = {}, position_labels = {}, expo
                                             <SciPolTd>
                                                 {row.source_url ? (
                                                     <a href={row.source_url} target="_blank" rel="noreferrer">
-                                                        {row.source_type || 'sumber'}
+                                                        {row.source_type || 'source'}
                                                     </a>
                                                 ) : '—'}
                                             </SciPolTd>

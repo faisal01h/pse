@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\SciPol;
 
 use App\Http\Controllers\Controller;
+use App\SciPol\MaskedId;
 use App\SciPol\Workspace;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,19 +13,25 @@ class CompareController extends Controller
 {
     public function __invoke(Request $request, Workspace $workspace): Response
     {
-        $type = $request->query('type') === 'party' ? 'party' : 'politician';
-        $ids = $workspace->normalizeIds(explode(',', (string) $request->query('ids', '')), 3);
+        $type = $request->query('type') === 'party' ? MaskedId::TYPE_PARTY : MaskedId::TYPE_POLITICIAN;
+        $tokens = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) $request->query('ids', ''))
+        )));
+        $ids = $workspace->resolveTokens($tokens, $type, 3);
 
-        $subjects = $type === 'party'
+        $subjects = $type === MaskedId::TYPE_PARTY
             ? $workspace->compareParties($ids)
             : $workspace->comparePoliticians($ids);
 
+        $maskedIds = array_map(fn (array $subject) => $subject['id'], $subjects);
+
         return Inertia::render('SciPol/Bandingkan', [
             'type' => $type,
-            'ids' => $ids,
+            'ids' => $maskedIds,
             'subjects' => $subjects,
-            'export_url' => count($ids) > 0
-                ? route('scipol.export', ['scope' => 'compare', 'type' => $type, 'ids' => implode(',', $ids)])
+            'export_url' => count($maskedIds) > 0
+                ? route('scipol.export', ['scope' => 'compare', 'type' => $type, 'ids' => implode(',', $maskedIds)])
                 : null,
         ]);
     }

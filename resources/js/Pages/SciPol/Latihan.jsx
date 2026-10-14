@@ -3,33 +3,33 @@ import SciPol, { SciPolNotice } from '@/Layouts/SciPol';
 
 const CHECKLISTS = [
     {
-        title: 'Sebelum mengajukan rekaman',
+        title: 'Before submitting a record',
         href: null,
         hrefLabel: null,
         items: [
-            'Sumber primer atau pemberitaan yang dapat dibuka publik.',
-            'Bedakan pernyataan, dugaan, dan vonis — jangan campur kategori.',
-            'Ringkasan / kutipan sesuai apa yang tertulis di sumber, bukan opini Anda.',
-            'Cantumkan tanggal kejadian bila ada di sumber.',
+            'Use a primary source or publicly accessible reporting.',
+            'Keep the summary or quote aligned with what the source says—not your opinion.',
+            'Include the event date when the source provides one.',
+            'Choose the record category that matches the source content.',
         ],
     },
     {
-        title: 'Ajukan ke arsip',
+        title: 'Submit to the archive',
         href: null,
-        hrefLabel: 'Buat pengajuan',
+        hrefLabel: 'Create submission',
         items: [
-            'Gunakan formulir pengajuan PolitiSEE untuk rekaman atau afiliasi bisnis.',
-            'Simpan kode lacak setelah berhasil mengirim.',
+            'Use the PolitiSEE submission form for records or business affiliations.',
+            'Save the tracking code after a successful submit.',
         ],
     },
     {
-        title: 'Sanggah data terbit',
+        title: 'Dispute published data',
         href: null,
         hrefLabel: 'Dispute',
         items: [
-            'Dispute hanya untuk data yang sudah terbit.',
-            'Sertakan sumber tandingan yang menjelaskan mengapa klaim keliru atau kedaluwarsa.',
-            'Lacak status sanggahan dengan kode yang diberikan.',
+            'Disputes apply only to already published data.',
+            'Include a counter-source explaining why the claim is wrong or outdated.',
+            'Track dispute status with the code you receive.',
         ],
     },
 ];
@@ -37,22 +37,22 @@ const CHECKLISTS = [
 export default function Latihan({ report_url, track_url, dispute_url }) {
     const blocks = [
         { ...CHECKLISTS[0] },
-        { ...CHECKLISTS[1], href: report_url, secondaryHref: track_url, secondaryLabel: 'Lacak pengajuan' },
+        { ...CHECKLISTS[1], href: report_url, secondaryHref: track_url, secondaryLabel: 'Track submission' },
         { ...CHECKLISTS[2], href: dispute_url },
     ];
 
     return (
-        <SciPol title="latihan">
-            <Head title="SciPol · Latihan sumber" />
+        <SciPol title="practice">
+            <Head title="SciPol · Source practice" />
 
-            <h1 className="text-2xl font-bold">Latihan sumber</h1>
+            <h1 className="text-2xl font-bold">Source practice</h1>
             <p className="mt-1 mb-4 max-w-2xl text-sm text-muted">
-                Latihan kewargaan dan literasi media: temukan sumber, dokumentasikan klaim, lalu ajukan atau sanggah
-                lewat alur PolitiSEE yang sudah ada. Akademisi dapat melewati bagian ini.
+                Civic and media-literacy practice: find a source, document the claim, then submit or dispute through
+                existing PolitiSEE flows. Academics can skip this section.
             </p>
 
             <SciPolNotice>
-                SciPol tidak mengganti antrean editorial. Pengajuan dan dispute tetap memakai formulir publik PolitiSEE.
+                SciPol does not replace the editorial queue. Submissions and disputes still use PolitiSEE public forms.
             </SciPolNotice>
 
             <div className="space-y-4">
@@ -63,7 +63,7 @@ export default function Latihan({ report_url, track_url, dispute_url }) {
                             <div className="flex flex-wrap gap-2 text-sm">
                                 {block.href ? (
                                     <a href={block.href} className="bg-ink px-2 py-1 font-bold text-white no-underline">
-                                        {block.hrefLabel || 'Buka'}
+                                        {block.hrefLabel || 'Open'}
                                     </a>
                                 ) : null}
                                 {block.secondaryHref ? (
@@ -83,11 +83,11 @@ export default function Latihan({ report_url, track_url, dispute_url }) {
             </div>
 
             <p className="mt-6 text-sm text-muted">
-                Setelah latihan, kembali ke{' '}
-                <Link href="/scipol/bandingkan" className="underline">Bandingkan</Link>
-                {' '}atau{' '}
-                <Link href="/scipol/topik" className="underline">Arsip topik</Link>
-                {' '}untuk analisis.
+                After practice, return to{' '}
+                <Link href="/scipol/bandingkan" className="underline">Compare</Link>
+                {' '}or{' '}
+                <Link href="/scipol/topik" className="underline">Topic archive</Link>
+                {' '}for analysis.
             </p>
         </SciPol>
     );

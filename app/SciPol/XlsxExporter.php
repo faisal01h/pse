@@ -39,7 +39,7 @@ class XlsxExporter
             ['archive_url', url('/')],
             ['scipol_url', url('/scipol')],
             ['criteria', $bundle['criteria']],
-            ['attribution', 'Ekstrak dari data terbit PolitiSEE. Tendensi terkode bukan vonis.'],
+            ['attribution', 'Extract from published PolitiSEE archive data.'],
         ]);
 
         $writer->addNewSheetAndMakeItCurrent()->setName('Codebook');

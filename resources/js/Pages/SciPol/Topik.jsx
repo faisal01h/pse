@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/inertia-react';
 import PageLinks from '@/Components/PageLinks';
-import SciPol, { CategoryBadge, ExportButton, SciPolNotice, SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
+import SciPol, { CategoryBadge, ExportButton, SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
 
 export default function Topik({
     items = [],
@@ -11,63 +11,59 @@ export default function Topik({
     export_url = null,
 }) {
     return (
-        <SciPol title="topik">
-            <Head title="SciPol · Arsip topik" />
+        <SciPol title="topics">
+            <Head title="SciPol · Topic archive" />
 
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold">Arsip topik</h1>
+                    <h1 className="text-2xl font-bold">Topic archive</h1>
                     <p className="mt-1 text-sm text-muted">
-                        Korpus rekaman terbit untuk tugas dan studi kasus. Perhatikan kategori.
+                        Published records for assignments and case studies.
                     </p>
                 </div>
                 <ExportButton href={export_url} disabled={!export_url} />
             </div>
 
-            <SciPolNotice>
-                <strong>Dugaan</strong> bukan <strong>vonis</strong>. Cantumkan kategori saat mengutip untuk makalah.
-            </SciPolNotice>
-
             <form method="get" action="/scipol/topik" className="mb-4 grid gap-2 border border-ink/15 bg-white p-3 sm:grid-cols-4">
                 <div>
-                    <label htmlFor="q" className="mb-1 block text-[11px] font-bold uppercase text-muted">Cari</label>
+                    <label htmlFor="q" className="mb-1 block text-[11px] font-bold uppercase text-muted">Search</label>
                     <input id="q" name="q" defaultValue={filters.q || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm" />
                 </div>
                 <div>
-                    <label htmlFor="topic" className="mb-1 block text-[11px] font-bold uppercase text-muted">Topik</label>
+                    <label htmlFor="topic" className="mb-1 block text-[11px] font-bold uppercase text-muted">Topic</label>
                     <select id="topic" name="topic" defaultValue={filters.topic || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm">
-                        <option value="">Semua</option>
+                        <option value="">All</option>
                         {topics.map((topic) => (
                             <option key={topic.id} value={topic.id}>{topic.name}</option>
                         ))}
                     </select>
                 </div>
                 <div>
-                    <label htmlFor="category" className="mb-1 block text-[11px] font-bold uppercase text-muted">Kategori</label>
+                    <label htmlFor="category" className="mb-1 block text-[11px] font-bold uppercase text-muted">Category</label>
                     <select id="category" name="category" defaultValue={filters.category || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm">
-                        <option value="">Semua</option>
+                        <option value="">All</option>
                         {categories.map((item) => (
                             <option key={item.key} value={item.key}>{item.label}</option>
                         ))}
                     </select>
                 </div>
                 <div className="flex items-end">
-                    <button type="submit" className="bg-ink px-3 py-1.5 text-sm font-bold text-white">Terapkan</button>
+                    <button type="submit" className="bg-ink px-3 py-1.5 text-sm font-bold text-white">Apply</button>
                 </div>
             </form>
 
             {items.length === 0 ? (
-                <p className="text-sm text-muted">Tidak ada rekaman yang cocok.</p>
+                <p className="text-sm text-muted">No records match.</p>
             ) : (
                 <SciPolTable>
                     <thead>
                         <tr>
-                            <SciPolTh>Tanggal</SciPolTh>
-                            <SciPolTh>Kategori</SciPolTh>
-                            <SciPolTh>Politisi</SciPolTh>
-                            <SciPolTh>Isi</SciPolTh>
-                            <SciPolTh>Topik</SciPolTh>
-                            <SciPolTh>Sumber</SciPolTh>
+                            <SciPolTh>Date</SciPolTh>
+                            <SciPolTh>Category</SciPolTh>
+                            <SciPolTh>Politician</SciPolTh>
+                            <SciPolTh>Content</SciPolTh>
+                            <SciPolTh>Topics</SciPolTh>
+                            <SciPolTh>Source</SciPolTh>
                         </tr>
                     </thead>
                     <tbody>
@@ -89,7 +85,7 @@ export default function Topik({
                                 <SciPolTd>
                                     {row.source_url ? (
                                         <a href={row.source_url} target="_blank" rel="noreferrer">
-                                            {row.source_type || 'sumber'}
+                                            {row.source_type || 'source'}
                                         </a>
                                     ) : '—'}
                                 </SciPolTd>
@@ -106,6 +102,12 @@ export default function Topik({
                     q: filters.q || '',
                     topic: filters.topic || '',
                     category: filters.category || '',
+                }}
+                labels={{
+                    prev: 'Previous',
+                    next: 'Next',
+                    page: (current, last) => `Page ${current} of ${last}`,
+                    aria: 'Pagination',
                 }}
             />
         </SciPol>

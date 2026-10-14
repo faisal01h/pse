@@ -10,6 +10,7 @@ use App\Models\IssueStance;
 use App\Models\Politician;
 use App\Models\PublicRecord;
 use App\Models\Topic;
+use App\SciPol\MaskedId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use OpenSpout\Reader\XLSX\Reader;
 use Tests\TestCase;
@@ -29,7 +30,7 @@ class SciPolTest extends TestCase
                 ->has('tools', 5));
     }
 
-    public function test_compare_shows_only_published_politicians(): void
+    public function test_compare_shows_only_published_politicians_with_masked_ids(): void
     {
         $published = $this->politician('Sari Terbit');
         $hidden = Politician::create([
@@ -49,15 +50,34 @@ class SciPolTest extends TestCase
             'source_type' => 'Pidato',
         ]);
 
+        $mask = app(MaskedId::class);
+        $publishedRef = $mask->encode(MaskedId::TYPE_POLITICIAN, $published->id);
+        $hiddenRef = $mask->encode(MaskedId::TYPE_POLITICIAN, $hidden->id);
+
         $this->get(route('scipol.compare', [
             'type' => 'politician',
-            'ids' => $published->id.','.$hidden->id,
+            'ids' => $publishedRef.','.$hiddenRef,
         ]))->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('SciPol/Bandingkan')
                 ->where('subjects', fn ($subjects) => count($subjects) === 1
-                    && $subjects[0]['id'] === $published->id
+                    && $subjects[0]['id'] === $publishedRef
+                    && $subjects[0]['id'] !== $published->id
                     && count($subjects[0]['tendencies']) === 1));
+    }
+
+    public function test_compare_rejects_raw_primary_keys(): void
+    {
+        $published = $this->politician('Raw Id Probe');
+
+        $this->get(route('scipol.compare', [
+            'type' => 'politician',
+            'ids' => (string) $published->id,
+        ]))->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('SciPol/Bandingkan')
+                ->where('subjects', [])
+                ->where('ids', []));
     }
 
     public function test_issue_map_hides_unpublished_politicians(): void
@@ -88,12 +108,16 @@ class SciPolTest extends TestCase
             'source_type' => 'Pidato',
         ]);
 
-        $this->get(route('scipol.issues.show', $issue))
+        $issueRef = app(MaskedId::class)->encode(MaskedId::TYPE_ISSUE, $issue->id);
+        $publishedRef = app(MaskedId::class)->encode(MaskedId::TYPE_POLITICIAN, $published->id);
+
+        $this->get(route('scipol.issues.show', $issueRef))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('SciPol/IsuShow')
+                ->where('issue.id', $issueRef)
                 ->where('groups.dukung', fn ($rows) => count($rows) === 1
-                    && $rows[0]['subject']['id'] === $published->id));
+                    && $rows[0]['subject']['id'] === $publishedRef));
     }
 
     public function test_affiliations_and_topics_list_published_rows(): void
@@ -118,20 +142,23 @@ class SciPolTest extends TestCase
         $topic = Topic::create(['name' => 'Energi']);
         $record = PublicRecord::query()->where('politician_id', $politician->id)->first();
         $record->topics()->attach($topic->id);
+        $topicRef = app(MaskedId::class)->encode(MaskedId::TYPE_TOPIC, $topic->id);
 
         $this->get(route('scipol.affiliations', ['sector' => 'Energi']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('SciPol/Afiliasi')
                 ->has('items', 1)
-                ->where('items.0.business.name', 'PT Contoh'));
+                ->where('items.0.business.name', 'PT Contoh')
+                ->where('items.0.id', fn ($id) => is_string($id) && $id !== (string) $business->id));
 
-        $this->get(route('scipol.topics', ['topic' => $topic->id]))
+        $this->get(route('scipol.topics', ['topic' => $topicRef]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('SciPol/Topik')
                 ->has('items', 1)
-                ->where('items.0.politician.name', 'Sari Afiliasi'));
+                ->where('items.0.politician.name', 'Sari Afiliasi')
+                ->where('filters.topic', $topicRef));
     }
 
     public function test_practice_page_links_to_existing_flows(): void
@@ -144,9 +171,9 @@ class SciPolTest extends TestCase
                 ->where('dispute_url', route('dispute.create')));
     }
 
-    public function test_suggest_returns_published_matches(): void
+    public function test_suggest_returns_masked_published_matches(): void
     {
-        $this->politician('Anita Published');
+        $published = $this->politician('Anita Published');
         Politician::create([
             'name' => 'Anita Draft',
             'position' => 'Anggota DPR',
@@ -154,10 +181,13 @@ class SciPolTest extends TestCase
             'status' => 0,
         ]);
 
+        $expected = app(MaskedId::class)->encode(MaskedId::TYPE_POLITICIAN, $published->id);
+
         $this->getJson(route('scipol.suggest', ['type' => 'politician', 'q' => 'Anita']))
             ->assertOk()
             ->assertJsonCount(1)
-            ->assertJsonFragment(['name' => 'Anita Published']);
+            ->assertJsonFragment(['name' => 'Anita Published', 'id' => $expected])
+            ->assertJsonMissing(['id' => $published->id]);
     }
 
     public function test_xlsx_export_contains_required_sheets(): void
@@ -173,10 +203,12 @@ class SciPolTest extends TestCase
             'source_type' => 'Pidato',
         ]);
 
+        $ref = app(MaskedId::class)->encode(MaskedId::TYPE_POLITICIAN, $politician->id);
+
         $response = $this->get(route('scipol.export', [
             'scope' => 'compare',
             'type' => 'politician',
-            'ids' => (string) $politician->id,
+            'ids' => $ref,
         ]));
 
         $response->assertOk();

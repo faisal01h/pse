@@ -2,11 +2,6 @@
 
 namespace App\SciPol;
 
-use App\Models\BusinessAffiliation;
-use App\Models\IdeologyPosition;
-use App\Models\IssueStance;
-use App\Models\PublicRecord;
-
 class Codebook
 {
     /**
@@ -14,74 +9,68 @@ class Codebook
      */
     public static function rows(): array
     {
-        $axes = collect(IdeologyPosition::AXES)->map(function (array $axis, string $key) {
+        $axes = collect(Labels::AXES)->map(function (array $axis, string $key) {
             return "{$key}: {$axis['label']} (0={$axis['left']} … 100={$axis['right']})";
         })->implode('; ');
 
-        $stances = collect(IssueStance::LABELS)->map(fn (string $label, string $key) => "{$key}={$label}")->implode('; ');
-        $categories = collect([
-            PublicRecord::CATEGORY_STATEMENT => 'Pernyataan publik',
-            PublicRecord::CATEGORY_ALLEGATION => 'Dugaan',
-            PublicRecord::CATEGORY_CONVICTION => 'Vonis',
-        ])->map(fn (string $label, string $key) => "{$key}={$label}")->implode('; ');
-        $affiliationTypes = collect(BusinessAffiliation::LABELS)
-            ->map(fn (string $label, string $key) => "{$key}={$label}")
-            ->implode('; ');
+        $stances = collect(Labels::STANCES)->map(fn (string $label, string $key) => "{$key}={$label}")->implode('; ');
+        $categories = collect(Labels::RECORD_CATEGORIES)->map(fn (string $label, string $key) => "{$key}={$label}")->implode('; ');
+        $affiliationTypes = collect(Labels::AFFILIATIONS)->map(fn (string $label, string $key) => "{$key}={$label}")->implode('; ');
 
         return [
             [
                 'field' => 'subject_kind',
                 'type' => 'enum',
                 'values' => 'politician; party',
-                'description' => 'Jenis subjek dalam ekstrak.',
+                'description' => 'Subject kind in the extract.',
             ],
             [
                 'field' => 'subject_id',
-                'type' => 'integer',
-                'values' => '',
-                'description' => 'ID internal PolitiSEE untuk subjek.',
+                'type' => 'string',
+                'values' => 'opaque SciPol reference',
+                'description' => 'Masked subject reference used by SciPol (not a database primary key).',
             ],
             [
                 'field' => 'axis',
                 'type' => 'enum',
                 'values' => $axes,
-                'description' => 'Sumbu ideologi. Skor 0–100 adalah tendensi terkode dari sumber, bukan vonis.',
+                'description' => 'Ideology axis. Score 0–100 coded from sources.',
             ],
             [
                 'field' => 'score',
                 'type' => 'integer',
                 'values' => '0–100',
-                'description' => 'Posisi pada sumbu; samples menunjukkan jumlah sumber yang dipakai menghitung.',
+                'description' => 'Position on the axis; samples is the number of sources used.',
             ],
             [
                 'field' => 'position',
                 'type' => 'enum',
                 'values' => $stances,
-                'description' => 'Sikap pada isu bernama.',
+                'description' => 'Stance on a named issue.',
             ],
             [
                 'field' => 'record_category',
                 'type' => 'enum',
                 'values' => $categories,
-                'description' => 'Kategori rekaman publik. Allegation ≠ conviction.',
+                'description' => 'Public record category.',
             ],
             [
                 'field' => 'affiliation_type',
                 'type' => 'enum',
                 'values' => $affiliationTypes,
-                'description' => 'Jenis afiliasi bisnis yang diterbitkan.',
+                'description' => 'Published business affiliation type.',
             ],
             [
                 'field' => 'source_url',
                 'type' => 'url',
                 'values' => '',
-                'description' => 'URL sumber yang mendasari baris data.',
+                'description' => 'Source URL underpinning the row.',
             ],
             [
                 'field' => 'retrieved_at',
                 'type' => 'datetime',
                 'values' => 'ISO-8601',
-                'description' => 'Waktu ekstrak dibuat dari arsip terbit.',
+                'description' => 'When the extract was built from the published archive.',
             ],
         ];
     }

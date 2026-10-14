@@ -136,7 +136,9 @@ Route::middleware('throttle:catalog')->group(function () {
         Route::get('/', SciPolHubController::class)->name('hub');
         Route::get('/bandingkan', SciPolCompareController::class)->name('compare');
         Route::get('/isu', [SciPolIssueController::class, 'index'])->name('issues.index');
-        Route::get('/isu/{issue}', [SciPolIssueController::class, 'show'])->name('issues.show');
+        Route::get('/isu/{issue}', [SciPolIssueController::class, 'show'])
+            ->where('issue', '[A-Za-z0-9_-]+')
+            ->name('issues.show');
         Route::get('/afiliasi', SciPolAffiliationController::class)->name('affiliations');
         Route::get('/topik', SciPolTopicController::class)->name('topics');
         Route::get('/latihan', SciPolPracticeController::class)->name('practice');

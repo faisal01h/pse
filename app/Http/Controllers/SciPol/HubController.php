@@ -16,28 +16,28 @@ class HubController extends Controller
             'tools' => [
                 [
                     'href' => route('scipol.compare'),
-                    'title' => 'Bandingkan',
-                    'blurb' => 'Matriks 2–3 tokoh atau partai: sumbu, sikap isu, tautan, afiliasi, dan hitungan rekaman.',
+                    'title' => 'Compare',
+                    'blurb' => 'Side-by-side matrix for 2–3 figures or parties: axes, issue stances, links, affiliations, and record counts.',
                 ],
                 [
                     'href' => route('scipol.issues.index'),
-                    'title' => 'Peta isu',
-                    'blurb' => 'Crosstab aktor menurut dukung / tolak / campuran pada isu bernama.',
+                    'title' => 'Issue map',
+                    'blurb' => 'Actor crosstabs by support / oppose / mixed on named issues.',
                 ],
                 [
                     'href' => route('scipol.affiliations'),
-                    'title' => 'Jejaring afiliasi',
-                    'blurb' => 'Kepemilikan dan endorsemen bisnis yang sudah diterbitkan, bisa disaring sektor.',
+                    'title' => 'Affiliation network',
+                    'blurb' => 'Published ownership and endorsement ties, filterable by sector.',
                 ],
                 [
                     'href' => route('scipol.topics'),
-                    'title' => 'Arsip topik',
-                    'blurb' => 'Korpus rekaman terbit menurut topik, kategori, dan kata kunci.',
+                    'title' => 'Topic archive',
+                    'blurb' => 'Published records filtered by topic, category, and keyword.',
                 ],
                 [
                     'href' => route('scipol.practice'),
-                    'title' => 'Latihan sumber',
-                    'blurb' => 'Checklist membaca sumber lalu mengajukan atau menyanggah data.',
+                    'title' => 'Source practice',
+                    'blurb' => 'Checklists for reading sources, then submitting or disputing data.',
                 ],
             ],
         ]);
