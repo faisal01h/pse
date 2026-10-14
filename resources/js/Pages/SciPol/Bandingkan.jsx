@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Head, router } from '@inertiajs/inertia-react';
+import { Inertia } from '@inertiajs/inertia';
+import { Head } from '@inertiajs/inertia-react';
 import Spectrum from '@/Components/Spectrum';
 import SciPol, { CategoryBadge, ExportButton, SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
 
@@ -93,7 +94,7 @@ export default function Bandingkan({ type = 'politician', ids = [], subjects = [
 
     const apply = (nextType, nextIds) => {
         const unique = [...new Set(nextIds.map(String).filter(Boolean))].slice(0, 3);
-        router.get('/scipol/bandingkan', {
+        Inertia.get('/scipol/bandingkan', {
             type: nextType,
             ids: unique.join(','),
         }, { preserveState: true, replace: true });
