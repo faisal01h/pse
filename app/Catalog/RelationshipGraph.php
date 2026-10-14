@@ -2,6 +2,7 @@
 
 namespace App\Catalog;
 
+use App\Models\BusinessAffiliation;
 use App\Models\IdeologyPosition;
 use App\Models\IssueStance;
 use App\Models\Party;
@@ -33,6 +34,15 @@ class RelationshipGraph
             ->orderBy('id')
             ->get();
 
+        $affiliations = BusinessAffiliation::query()
+            ->whereIn('politician_id', $ids)
+            ->where('status', BusinessAffiliation::STATUS_PUBLISHED)
+            ->whereHas('business', fn ($q) => $q->where('status', 1))
+            ->with('business:id,name,status,sector')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('politician_id');
+
         $aligned = $this->alignedPoliticians(
             $politicians->flatMap->issueStances->pluck('issue_id')->unique()->filter()->values()
         );
@@ -46,6 +56,10 @@ class RelationshipGraph
                 'politician',
                 $politician->id
             ));
+            $politician->setAttribute(
+                'business_affiliations',
+                $this->publicBusinessAffiliations($affiliations->get($politician->id, collect()))
+            );
             $politician->unsetRelation('ideologyPositions');
             $politician->unsetRelation('issueStances');
         }
@@ -92,10 +106,18 @@ class RelationshipGraph
             ->orderBy('id')
             ->get();
 
+        $affiliations = BusinessAffiliation::query()
+            ->where('politician_id', $politician->id)
+            ->where('status', BusinessAffiliation::STATUS_PUBLISHED)
+            ->with('business:id,name')
+            ->orderBy('id')
+            ->get();
+
         return [
             'axes' => IdeologyPosition::formAxes(),
             'link_types' => PoliticianLink::formTypes(),
             'stance_positions' => IssueStance::formPositions(),
+            'affiliation_types' => BusinessAffiliation::formTypes(),
             'tendencies' => $this->adminTendencies($politician->ideologyPositions()->get()),
             'connections' => $links->map(function (PoliticianLink $link) use ($politician) {
                 $other = $link->politician_a_id === $politician->id ? $link->politicianB : $link->politicianA;
@@ -103,6 +125,20 @@ class RelationshipGraph
                 return $this->adminConnection($link, $link->labelFrom($politician->id), $other);
             })->values()->all(),
             'stances' => $this->adminStances($politician->issueStances()->with('issue')->orderBy('id')->get()),
+            'affiliations' => $affiliations->map(fn (BusinessAffiliation $affiliation) => [
+                'id' => $affiliation->id,
+                'type' => $affiliation->type,
+                'label' => $affiliation->typeLabel(),
+                'ownership_percent' => $affiliation->ownership_percent,
+                'summary' => $affiliation->summary,
+                'source_url' => $affiliation->source_url,
+                'source_type' => $affiliation->source_type,
+                'occurred_on' => optional($affiliation->occurred_on)->toDateString() ?? '',
+                'business' => [
+                    'id' => $affiliation->business_id,
+                    'name' => $affiliation->business?->name,
+                ],
+            ])->values()->all(),
         ];
     }
 
@@ -156,6 +192,29 @@ class RelationshipGraph
             ->filter()
             ->values()
             ->all();
+    }
+
+    private function publicBusinessAffiliations(Collection $affiliations): array
+    {
+        return $affiliations->map(function (BusinessAffiliation $affiliation) {
+            if (! $affiliation->business) {
+                return null;
+            }
+
+            return [
+                'label' => $affiliation->typeLabel(),
+                'type' => $affiliation->type,
+                'ownership_percent' => $affiliation->ownership_percent,
+                'summary' => $affiliation->summary,
+                'source_url' => $affiliation->source_url,
+                'source_type' => $affiliation->source_type,
+                'business' => [
+                    'id' => $affiliation->business->id,
+                    'name' => $affiliation->business->name,
+                    'href' => route('businesses.show', $affiliation->business->id),
+                ],
+            ];
+        })->filter()->values()->all();
     }
 
     private function publicPoliticianLinks(Politician $politician, Collection $links): array

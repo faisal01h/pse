@@ -8,7 +8,8 @@ use App\Http\Controllers\Admin\PoliticianAdminController;
 use App\Http\Controllers\Admin\ProposalController;
 use App\Http\Controllers\Admin\RelationshipAdminController;
 use App\Http\Controllers\AttachmentController;
-use App\Http\Controllers\CaptchaController;
+use App\Http\Controllers\BusinessAffiliationController;
+use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\PageController;
@@ -17,6 +18,8 @@ use App\Http\Controllers\PoliticianController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SubmissionTrackingController;
 use App\Inference\ProposalQueue;
+use App\Models\Business;
+use App\Models\BusinessAffiliation;
 use App\Models\Party;
 use App\Models\Politician;
 use App\Models\PublicRecord;
@@ -38,6 +41,10 @@ use Inertia\Inertia;
 Route::get('/attachments/{attachment}', [AttachmentController::class, 'show'])
     ->middleware('throttle:attachments')
     ->name('attachments.show');
+
+Route::get('/affiliation-attachments/{attachment}', [AttachmentController::class, 'showAffiliation'])
+    ->middleware('throttle:attachments')
+    ->name('affiliation-attachments.show');
 
 Route::middleware('throttle:catalog')->group(function () {
     Route::get('/feed', FeedController::class)->name('feed');
@@ -96,6 +103,22 @@ Route::middleware('throttle:catalog')->group(function () {
         ]);
     })->name('politicians.show');
 
+    Route::get('/businesses', function (Request $request, BusinessController $businesses) {
+        $catalog = $businesses->catalog($request->query('q'));
+
+        return Inertia::render('Businesses', [
+            'businesses' => $catalog['items'],
+            'meta' => $catalog['meta'],
+            'query' => trim((string) $request->query('q', '')),
+        ]);
+    })->name('businesses.index');
+
+    Route::get('/businesses/{business}', function (Business $business, BusinessController $businesses) {
+        return Inertia::render('Business', [
+            'business' => $businesses->show($business),
+        ]);
+    })->name('businesses.show');
+
     Route::get('/pages/{page:slug}', [PageController::class, 'show'])->name('pages.show');
 });
 
@@ -104,12 +127,17 @@ Route::get('/search', SearchController::class)->middleware('throttle:search')->n
 Route::get('/reports', function () {
     return Inertia::render('Pengajuan', [
         'parties' => Party::query()->orderBy('name')->get(['id', 'name']),
+        'businesses' => Business::query()->orderBy('name')->get(['id', 'name']),
     ]);
 })->name('reports.create');
 
 Route::get('/reports/suggest', [PoliticianController::class, 'suggest'])
     ->middleware('throttle:60,1')
     ->name('reports.suggest');
+
+Route::get('/reports/businesses/suggest', [BusinessController::class, 'suggest'])
+    ->middleware('throttle:60,1')
+    ->name('reports.businesses.suggest');
 
 Route::get('/reports/received', [SubmissionTrackingController::class, 'receipt'])->name('reports.receipt');
 
@@ -123,27 +151,40 @@ Route::get('/dispute/received', [DisputeController::class, 'received'])->name('d
 Route::get('/dispute/records', [DisputeController::class, 'records'])
     ->middleware('throttle:60,1')
     ->name('dispute.records');
+Route::get('/dispute/affiliations', [DisputeController::class, 'affiliations'])
+    ->middleware('throttle:60,1')
+    ->name('dispute.affiliations');
 Route::post('/dispute', [DisputeController::class, 'store'])
     ->middleware('throttle:disputes')
     ->name('dispute.store');
-
-Route::get('/captcha', [CaptchaController::class, 'image'])->middleware('throttle:30,1')->name('captcha');
 
 Route::post('/reports', [PoliticianController::class, 'create'])
     ->middleware('throttle:reports')
     ->name('newReport');
 
+Route::post('/reports/affiliations', [BusinessAffiliationController::class, 'create'])
+    ->middleware('throttle:reports')
+    ->name('reports.affiliations.store');
+
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', function (PoliticianController $politicians, DisputeController $disputes) {
+    Route::get('/dashboard', function (PoliticianController $politicians, BusinessAffiliationController $affiliations, DisputeController $disputes) {
         return Inertia::render('Dashboard', [
             'reports' => $politicians->pending(),
+            'affiliations' => $affiliations->pending(),
             'decided' => $politicians->decided(),
+            'decidedAffiliations' => $affiliations->decided(),
             'proposals' => app(ProposalQueue::class)->pending(),
             'disputes' => $disputes->pending(),
         ]);
     })->name('dashboard');
 
     Route::post('/admin/disputes/{dispute}', [DisputeController::class, 'decide'])->name('admin.disputes.decide');
+
+    Route::get('/reviews/affiliations/{affiliation}', function (BusinessAffiliation $affiliation, BusinessAffiliationController $controller) {
+        return Inertia::render('AffiliationReview', $controller->review($affiliation));
+    })->name('affiliations.review');
+
+    Route::post('/reviews/affiliations/{affiliation}', [BusinessAffiliationController::class, 'decide'])->name('affiliations.decide');
 
     Route::get('/reviews/{record}', function (PublicRecord $record, PoliticianController $politicians) {
         return Inertia::render('Review', $politicians->review($record));
@@ -191,6 +232,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/admin/politicians/{politician}/links/{politicianLink}', [RelationshipAdminController::class, 'destroyPoliticianLink'])->name('admin.politicians.links.destroy');
     Route::post('/admin/politicians/{politician}/issues', [RelationshipAdminController::class, 'storePoliticianStance'])->name('admin.politicians.stances.store');
     Route::delete('/admin/politicians/{politician}/issues/{issueStance}', [RelationshipAdminController::class, 'destroyPoliticianStance'])->name('admin.politicians.stances.destroy');
+    Route::post('/admin/politicians/{politician}/affiliations', [RelationshipAdminController::class, 'storeBusinessAffiliation'])->name('admin.politicians.affiliations.store');
+    Route::delete('/admin/politicians/{politician}/affiliations/{businessAffiliation}', [RelationshipAdminController::class, 'destroyBusinessAffiliation'])->name('admin.politicians.affiliations.destroy');
 });
 
 require __DIR__.'/auth.php';

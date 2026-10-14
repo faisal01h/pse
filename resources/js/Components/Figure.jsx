@@ -67,6 +67,7 @@ export default function Figure({ politician }) {
                 tendencies={politician.tendencies}
                 connections={politician.connections}
                 stances={politician.issue_stances}
+                affiliations={politician.business_affiliations}
             />
         </article>
     );

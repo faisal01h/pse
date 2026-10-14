@@ -56,7 +56,8 @@ class CatalogSearch
                 'type_rank' => match ($document->type) {
                     SearchDocument::TYPE_POLITICIAN => 0,
                     SearchDocument::TYPE_PARTY => 1,
-                    default => 2,
+                    SearchDocument::TYPE_BUSINESS => 2,
+                    default => 3,
                 },
                 'type' => $document->type,
                 'label' => $document->label,

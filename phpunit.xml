@@ -28,5 +28,8 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="INFERENCE_DRIVER" value="local"/>
+        <env name="TURNSTILE_SITEKEY" value="1x00000000000000000000AA"/>
+        <env name="TURNSTILE_SECRET" value="1x0000000000000000000000000000000AA"/>
+        <env name="TURNSTILE_HOSTNAMES" value="localhost,127.0.0.1"/>
     </php>
 </phpunit>

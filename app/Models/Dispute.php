@@ -17,6 +17,10 @@ class Dispute extends Model
 
     public const STATUS_DISMISSED = 'dismissed';
 
+    public const TARGET_RECORD = 'record';
+
+    public const TARGET_AFFILIATION = 'affiliation';
+
     protected static function booted(): void
     {
         static::creating(function (Dispute $dispute) {
@@ -28,6 +32,7 @@ class Dispute extends Model
 
     protected $fillable = [
         'public_record_id',
+        'business_affiliation_id',
         'tracking_code',
         'reason',
         'source_url',
@@ -47,8 +52,18 @@ class Dispute extends Model
         return $this->belongsTo(PublicRecord::class, 'public_record_id');
     }
 
+    public function affiliation(): BelongsTo
+    {
+        return $this->belongsTo(BusinessAffiliation::class, 'business_affiliation_id');
+    }
+
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function isAffiliationTarget(): bool
+    {
+        return $this->business_affiliation_id !== null;
     }
 }

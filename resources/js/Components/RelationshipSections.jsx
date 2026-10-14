@@ -1,13 +1,28 @@
 import { Link } from '@inertiajs/inertia-react';
 import Spectrum from '@/Components/Spectrum';
 
-export default function RelationshipSections({ tendencies = [], connections = [], stances = [] }) {
-    if (tendencies.length === 0 && connections.length === 0 && stances.length === 0) {
+export default function RelationshipSections({ tendencies = [], connections = [], stances = [], affiliations = [] }) {
+    if (tendencies.length === 0 && connections.length === 0 && stances.length === 0 && affiliations.length === 0) {
         return null;
     }
 
     return (
         <div className="flex flex-col gap-6 border-t border-ink/20 pt-4">
+            {affiliations.length > 0 ? (
+                <section>
+                    <h3 className="text-xl font-bold">Afiliasi bisnis</h3>
+                    <p className="mt-1 text-muted">Kepemilikan atau endorsemen yang dicatat dari sumber publik.</p>
+                    <ul className="mt-3 flex flex-col gap-3">
+                        {affiliations.map((item) => (
+                            <li key={`${item.label}-${item.business.id}`}>
+                                <p className="font-bold">{item.label} <Link href={item.business.href}>{item.business.name}</Link></p>
+                                <p>{item.summary}</p>
+                                <a href={item.source_url} className="font-bold" target="_blank" rel="noreferrer">Sumber: {item.source_type}</a>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            ) : null}
             {tendencies.length > 0 ? (
                 <section>
                     <h3 className="text-xl font-bold">Kecenderungan</h3>

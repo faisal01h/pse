@@ -41,7 +41,7 @@ export default function LaporanDiterima({ auth, code }) {
                             {copied ? <p>Kode tersalin.</p> : null}
                         </div>
                         <p className="mt-6">
-                            <Link href="/reports/track">Lacak pengajuan</Link>
+                            <Link href="/reports/track?kind=submission">Lacak pengajuan</Link>
                         </p>
                     </>
                 ) : (
@@ -50,7 +50,7 @@ export default function LaporanDiterima({ auth, code }) {
                             Kode pelacakan sudah tidak ditampilkan. Jika Anda menyimpannya, buka halaman lacak dan masukkan kode itu.
                         </p>
                         <p className="mt-6">
-                            <Link href="/reports/track" className="gov-button">Lacak pengajuan</Link>
+                            <Link href="/reports/track?kind=submission" className="gov-button">Lacak pengajuan</Link>
                         </p>
                     </>
                 )}

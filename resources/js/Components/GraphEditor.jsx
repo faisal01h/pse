@@ -149,7 +149,19 @@ function AxisForm({ axis, saved, url, destroyUrl }) {
     );
 }
 
-export default function GraphEditor({ graph, subjectId, suggestUrl, tendencyUrl, tendencyDestroy, linkUrl, linkDestroy, stanceUrl, stanceDestroy }) {
+export default function GraphEditor({
+    graph,
+    subjectId,
+    suggestUrl,
+    tendencyUrl,
+    tendencyDestroy,
+    linkUrl,
+    linkDestroy,
+    stanceUrl,
+    stanceDestroy,
+    affiliationUrl,
+    affiliationDestroy,
+}) {
     const linkForm = useForm({
         other_id: '',
         type: graph.link_types[0]?.key ?? '',
@@ -162,6 +174,17 @@ export default function GraphEditor({ graph, subjectId, suggestUrl, tendencyUrl,
         issue_name: '',
         position: graph.stance_positions[0]?.key ?? '',
         note: '',
+        source_type: '',
+        source_url: '',
+        occurred_on: '',
+    });
+    const affiliationForm = useForm({
+        business_id: 'other',
+        business_name: '',
+        type: graph.affiliation_types?.[0]?.key ?? 'ownership',
+        ownership_percent: '',
+        ownership_unknown: true,
+        summary: '',
         source_type: '',
         source_url: '',
         occurred_on: '',
@@ -184,6 +207,30 @@ export default function GraphEditor({ graph, subjectId, suggestUrl, tendencyUrl,
         stanceForm.post(stanceUrl, {
             preserveScroll: true,
             onSuccess: () => stanceForm.reset('issue_name', 'note', 'source_type', 'source_url', 'occurred_on'),
+        });
+    };
+
+    const submitAffiliation = (event) => {
+        event.preventDefault();
+        if (!affiliationUrl) {
+            return;
+        }
+        affiliationForm.post(affiliationUrl, {
+            preserveScroll: true,
+            onSuccess: () => {
+                affiliationForm.reset();
+                affiliationForm.setData({
+                    business_id: 'other',
+                    business_name: '',
+                    type: graph.affiliation_types?.[0]?.key ?? 'ownership',
+                    ownership_percent: '',
+                    ownership_unknown: true,
+                    summary: '',
+                    source_type: '',
+                    source_url: '',
+                    occurred_on: '',
+                });
+            },
         });
     };
 
@@ -292,6 +339,94 @@ export default function GraphEditor({ graph, subjectId, suggestUrl, tendencyUrl,
                     <button className="gov-button mt-6" disabled={stanceForm.processing}>Simpan posisi isu</button>
                 </form>
             </section>
+            {affiliationUrl ? (
+                <section>
+                    <h2 className="text-2xl font-bold">Afiliasi bisnis</h2>
+                    {(graph.affiliations ?? []).length > 0 ? (
+                        <ul className="mt-4 flex flex-col gap-3">
+                            {graph.affiliations.map((item) => (
+                                <li key={item.id} className="border-2 border-ink p-4">
+                                    <p className="font-bold">{item.label} {item.business?.name}</p>
+                                    <p className="mt-1">{item.summary}</p>
+                                    <a href={item.source_url} className="font-bold" target="_blank" rel="noreferrer">Sumber: {item.source_type}</a>
+                                    <div>
+                                        <Link href={affiliationDestroy(item.id)} method="delete" as="button" className="mt-3 underline" preserveScroll>Hapus afiliasi</Link>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : <p className="mt-2">Belum ada afiliasi bisnis.</p>}
+                    <form onSubmit={submitAffiliation} className="mt-4 border-2 border-ink p-4">
+                        <h3 className="text-xl font-bold">Tambah afiliasi bisnis</h3>
+                        <ValidationErrors errors={affiliationForm.errors} />
+                        <div className="mt-4">
+                            <label htmlFor="affiliation-business" className="block font-bold mb-1">Nama bisnis</label>
+                            <input
+                                id="affiliation-business"
+                                value={affiliationForm.data.business_name}
+                                onChange={(event) => affiliationForm.setData('business_name', event.target.value)}
+                                className="gov-input"
+                                placeholder="Nama usaha atau merek"
+                            />
+                        </div>
+                        <div className="mt-4">
+                            <label htmlFor="affiliation-type" className="block font-bold mb-1">Jenis</label>
+                            <select
+                                id="affiliation-type"
+                                value={affiliationForm.data.type}
+                                onChange={(event) => affiliationForm.setData('type', event.target.value)}
+                                className="gov-input"
+                            >
+                                {(graph.affiliation_types ?? []).map((type) => (
+                                    <option key={type.key} value={type.key}>{type.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {affiliationForm.data.type === 'ownership' ? (
+                            <div className="mt-4">
+                                <label className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={affiliationForm.data.ownership_unknown}
+                                        onChange={(event) => affiliationForm.setData((current) => ({
+                                            ...current,
+                                            ownership_unknown: event.target.checked,
+                                            ownership_percent: event.target.checked ? '' : current.ownership_percent,
+                                        }))}
+                                    />
+                                    Jumlah kepemilikan tidak diketahui
+                                </label>
+                                {!affiliationForm.data.ownership_unknown ? (
+                                    <div className="mt-3">
+                                        <label htmlFor="affiliation-percent" className="block font-bold mb-1">Persentase</label>
+                                        <input
+                                            id="affiliation-percent"
+                                            type="number"
+                                            min="1"
+                                            max="100"
+                                            step="0.01"
+                                            value={affiliationForm.data.ownership_percent}
+                                            onChange={(event) => affiliationForm.setData('ownership_percent', event.target.value)}
+                                            className="gov-input"
+                                        />
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+                        <div className="mt-4">
+                            <label htmlFor="affiliation-summary" className="block font-bold mb-1">Ringkasan dari sumber</label>
+                            <textarea
+                                id="affiliation-summary"
+                                value={affiliationForm.data.summary}
+                                onChange={(event) => affiliationForm.setData('summary', event.target.value)}
+                                className="gov-input min-h-[8rem]"
+                            />
+                        </div>
+                        <SourceFields data={affiliationForm.data} setData={affiliationForm.setData} idPrefix="affiliation" />
+                        <button className="gov-button mt-6" disabled={affiliationForm.processing}>Simpan afiliasi</button>
+                    </form>
+                </section>
+            ) : null}
         </div>
     );
 }

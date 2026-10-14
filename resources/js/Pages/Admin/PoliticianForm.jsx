@@ -116,6 +116,8 @@ export default function PoliticianForm({ auth, politician, parties, records, gra
                             linkDestroy={(id) => route('admin.politicians.links.destroy', [politician.id, id])}
                             stanceUrl={route('admin.politicians.stances.store', politician.id)}
                             stanceDestroy={(id) => route('admin.politicians.stances.destroy', [politician.id, id])}
+                            affiliationUrl={route('admin.politicians.affiliations.store', politician.id)}
+                            affiliationDestroy={(id) => route('admin.politicians.affiliations.destroy', [politician.id, id])}
                         />
                         </>
                     ) : null}

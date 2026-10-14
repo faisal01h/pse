@@ -45,6 +45,11 @@ class Politician extends Model
         return $this->hasMany(IssueStance::class);
     }
 
+    public function businessAffiliations(): HasMany
+    {
+        return $this->hasMany(BusinessAffiliation::class);
+    }
+
     public function getPhotoUrlAttribute(): ?string
     {
         if (! $this->picture_url) {

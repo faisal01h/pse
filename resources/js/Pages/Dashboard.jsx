@@ -8,6 +8,8 @@ const categoryLabel = {
     statement: 'Pernyataan publik',
     allegation: 'Dugaan pelanggaran',
     conviction: 'Vonis pengadilan',
+    ownership: 'Kepemilikan',
+    endorsement: 'Endorsemen',
 };
 
 const statusLabel = {
@@ -34,20 +36,38 @@ function excerpt(record) {
     return text.length > 90 ? `${text.slice(0, 90)}…` : text;
 }
 
+function affiliationLabel(item) {
+    if (item.type === 'ownership') {
+        if (item.ownership_percent == null) {
+            return 'Kepemilikan (jumlah tidak diketahui)';
+        }
+        if (Number(item.ownership_percent) >= 100) {
+            return 'Kepemilikan penuh (100%)';
+        }
+        return `Kepemilikan ${item.ownership_percent}%`;
+    }
+
+    return categoryLabel[item.type] ?? item.type;
+}
+
 export default function Dashboard(props) {
     const reports = props.reports ?? [];
+    const affiliations = props.affiliations ?? [];
     const decided = props.decided ?? [];
+    const decidedAffiliations = props.decidedAffiliations ?? [];
     const proposals = props.proposals ?? [];
     const disputeGroups = props.disputes ?? [];
     const disputeCount = disputeGroups.reduce((sum, group) => sum + group.disputes.length, 0);
+    const pendingCount = reports.length + affiliations.length;
+    const decidedCount = decided.length + decidedAffiliations.length;
     const tabs = [
-        { id: 'pending', label: 'Menunggu', count: reports.length },
+        { id: 'pending', label: 'Menunggu', count: pendingCount },
         { id: 'disputes', label: 'Sanggahan', count: disputeCount },
         { id: 'proposals', label: 'Usulan', count: proposals.length },
-        { id: 'decided', label: 'Keputusan', count: decided.length },
+        { id: 'decided', label: 'Keputusan', count: decidedCount },
     ];
     const [tab, setTab] = useState(
-        reports.length > 0 ? 'pending' : disputeCount > 0 ? 'disputes' : proposals.length > 0 ? 'proposals' : 'decided',
+        pendingCount > 0 ? 'pending' : disputeCount > 0 ? 'disputes' : proposals.length > 0 ? 'proposals' : 'decided',
     );
 
     return (
@@ -78,11 +98,11 @@ export default function Dashboard(props) {
 
             {tab === 'pending' ? (
                 <div className="mt-4 overflow-x-auto" role="tabpanel">
-                    {reports.length > 0 ? (
+                    {pendingCount > 0 ? (
                         <table className="admin-table">
                             <thead>
                                 <tr>
-                                    <th>Catatan</th>
+                                    <th>Pengajuan</th>
                                     <th>Jenis</th>
                                     <th>Sumber</th>
                                     <th>Masuk</th>
@@ -90,7 +110,7 @@ export default function Dashboard(props) {
                             </thead>
                             <tbody>
                                 {reports.map((record) => (
-                                    <tr key={record.id}>
+                                    <tr key={`record-${record.id}`}>
                                         <td>
                                             <Link href={route('reports.review', record.id)} className="row-link">
                                                 {record.politician?.name}
@@ -102,16 +122,38 @@ export default function Dashboard(props) {
                                         <td className="whitespace-nowrap">{formatDate(record.created_at)}</td>
                                     </tr>
                                 ))}
+                                {affiliations.map((item) => (
+                                    <tr key={`affiliation-${item.id}`}>
+                                        <td>
+                                            <Link href={route('affiliations.review', item.id)} className="row-link">
+                                                {item.politician?.name}
+                                            </Link>
+                                            <p className="max-w-md text-muted">
+                                                {item.business?.name ? `${item.business.name} · ` : ''}
+                                                {excerpt(item)}
+                                            </p>
+                                        </td>
+                                        <td>{affiliationLabel(item)}</td>
+                                        <td>{item.source_type}</td>
+                                        <td className="whitespace-nowrap">{formatDate(item.created_at)}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
-                    ) : <p>Tidak ada catatan menunggu.</p>}
+                    ) : <p>Tidak ada pengajuan menunggu.</p>}
                 </div>
             ) : null}
 
             {tab === 'disputes' ? (
                 <div className="mt-4" role="tabpanel">
                     {disputeGroups.length > 0 ? disputeGroups.map((group) => (
-                        <section key={group.record.id} className="mt-6 first:mt-0">
+                        <section key={`${group.kind ?? 'record'}-${group.record.id}`} className="mt-6 first:mt-0">
+                            <p className="text-sm font-bold text-muted">
+                                {group.kind === 'affiliation' ? 'Afiliasi bisnis' : 'Catatan publik'}
+                                {group.kind === 'affiliation' && group.record.threshold ? (
+                                    <> · pending {group.record.pending_count ?? group.disputes.length}/{group.record.threshold}{group.record.retracted ? ' · sudah ditarik otomatis' : ''}</>
+                                ) : null}
+                            </p>
                             <h2 className="text-2xl font-bold">
                                 {group.record.href ? (
                                     <Link href={group.record.href} className="row-link">{group.record.politician}</Link>
@@ -162,19 +204,19 @@ export default function Dashboard(props) {
 
             {tab === 'decided' ? (
                 <div className="mt-4 overflow-x-auto" role="tabpanel">
-                    {decided.length > 0 ? (
+                    {decidedCount > 0 ? (
                         <table className="admin-table">
                             <thead>
                                 <tr>
                                     <th>Status</th>
-                                    <th>Catatan</th>
+                                    <th>Pengajuan</th>
                                     <th>Jenis</th>
                                     <th>Pemeriksa</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {decided.map((record) => (
-                                    <tr key={record.id}>
+                                    <tr key={`decided-record-${record.id}`}>
                                         <td>
                                             <span className={`inline-block px-2 py-0.5 font-bold ${record.status === 1 ? 'bg-ink text-white' : 'bg-canvas'}`}>
                                                 {statusLabel[record.status] ?? record.status}
@@ -190,6 +232,29 @@ export default function Dashboard(props) {
                                         <td>
                                             {record.reviewer?.name ?? 'Pemeriksa'}
                                             <p className="text-muted whitespace-nowrap">{formatDate(record.reviewed_at)}</p>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {decidedAffiliations.map((item) => (
+                                    <tr key={`decided-affiliation-${item.id}`}>
+                                        <td>
+                                            <span className={`inline-block px-2 py-0.5 font-bold ${item.status === 1 ? 'bg-ink text-white' : 'bg-canvas'}`}>
+                                                {statusLabel[item.status] ?? item.status}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <Link href={route('affiliations.review', item.id)} className="row-link">
+                                                {item.politician?.name}
+                                            </Link>
+                                            <p className="max-w-md text-muted">
+                                                {item.business?.name ? `${item.business.name} · ` : ''}
+                                                {item.review_note ? excerpt({ quote: item.review_note }) : excerpt(item)}
+                                            </p>
+                                        </td>
+                                        <td>{affiliationLabel(item)}</td>
+                                        <td>
+                                            {item.reviewer?.name ?? 'Pemeriksa'}
+                                            <p className="text-muted whitespace-nowrap">{formatDate(item.reviewed_at)}</p>
                                         </td>
                                     </tr>
                                 ))}

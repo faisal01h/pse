@@ -10,6 +10,8 @@ class SearchDocument extends Model
 
     public const TYPE_PARTY = 'party';
 
+    public const TYPE_BUSINESS = 'business';
+
     public const TYPE_RECORD = 'record';
 
     protected $fillable = [

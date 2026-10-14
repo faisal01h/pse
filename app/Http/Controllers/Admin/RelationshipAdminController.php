@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Business;
+use App\Models\BusinessAffiliation;
 use App\Models\IdeologyPosition;
 use App\Models\Issue;
 use App\Models\IssueStance;
@@ -159,6 +161,92 @@ class RelationshipAdminController extends Controller
         return redirect()->route('admin.parties.edit', $party);
     }
 
+    public function storeBusinessAffiliation(Request $request, Politician $politician): RedirectResponse
+    {
+        $this->blankDate($request);
+        $request->merge([
+            'ownership_percent' => $request->boolean('ownership_unknown')
+                ? null
+                : ($request->input('ownership_percent') !== '' ? $request->input('ownership_percent') : null),
+        ]);
+
+        $validated = $request->validate([
+            'business_id' => 'nullable|string|max:20',
+            'business_name' => 'nullable|string|max:255|required_if:business_id,other',
+            'type' => ['required', Rule::in(BusinessAffiliation::typeKeys())],
+            'ownership_percent' => 'nullable|numeric|min:1|max:100',
+            'ownership_unknown' => 'nullable|boolean',
+            ...$this->sourceRules('summary'),
+        ], [
+            'business_name.required_if' => 'Ketik nama bisnis jika memilih lainnya.',
+            ...$this->sourceMessages('summary', 'Ringkasan'),
+        ]);
+
+        if (($validated['business_id'] ?? '') === 'other' || ($validated['business_id'] ?? '') === '') {
+            if (trim((string) ($validated['business_name'] ?? '')) === '') {
+                throw ValidationException::withMessages([
+                    'business_id' => 'Pilih bisnis dari daftar, atau ketik nama baru.',
+                ]);
+            }
+            $business = Business::findOrCreateByName($validated['business_name'], Business::STATUS_PUBLISHED);
+        } else {
+            $business = Business::query()->whereKey($validated['business_id'])->firstOrFail();
+        }
+
+        if ($validated['type'] !== BusinessAffiliation::TYPE_OWNERSHIP) {
+            $validated['ownership_percent'] = null;
+        } elseif ($request->boolean('ownership_unknown')) {
+            $validated['ownership_percent'] = null;
+        }
+
+        $this->rejectDuplicate(
+            BusinessAffiliation::query()
+                ->where('politician_id', $politician->id)
+                ->where('business_id', $business->id)
+                ->where('type', $validated['type'])
+                ->where('status', BusinessAffiliation::STATUS_PUBLISHED)
+                ->exists(),
+            'business_id',
+            'Afiliasi ini sudah tercatat.'
+        );
+
+        $business->status = Business::STATUS_PUBLISHED;
+        $business->save();
+
+        BusinessAffiliation::create([
+            'politician_id' => $politician->id,
+            'business_id' => $business->id,
+            'type' => $validated['type'],
+            'ownership_percent' => $validated['ownership_percent'] ?? null,
+            'summary' => trim($validated['summary']),
+            'status' => BusinessAffiliation::STATUS_PUBLISHED,
+            'reviewed_at' => now(),
+            'reviewed_by' => $request->user()->id,
+            'check_source' => true,
+            'check_wording' => true,
+            'check_category' => true,
+            'check_duplicate' => true,
+            'check_legal_label' => true,
+            'review_note' => 'Ditambahkan langsung oleh pemeriksa.',
+            ...$this->sourceColumns($validated, $request),
+        ]);
+
+        if ((int) $politician->status !== 1) {
+            $politician->status = 1;
+            $politician->save();
+        }
+
+        return redirect()->route('admin.politicians.edit', $politician);
+    }
+
+    public function destroyBusinessAffiliation(Politician $politician, BusinessAffiliation $businessAffiliation): RedirectResponse
+    {
+        abort_unless($businessAffiliation->politician_id === $politician->id, 404);
+        $businessAffiliation->delete();
+
+        return redirect()->route('admin.politicians.edit', $politician);
+    }
+
     private function suggest($query, Request $request, array $columns)
     {
         $term = trim((string) $request->query('q', ''));
@@ -307,11 +395,11 @@ class RelationshipAdminController extends Controller
         $stance->save();
     }
 
-    private function rejectDuplicate(bool $exists): void
+    private function rejectDuplicate(bool $exists, string $field = 'other_id', string $message = 'Hubungan ini sudah tercatat.'): void
     {
         if ($exists) {
             throw ValidationException::withMessages([
-                'other_id' => 'Hubungan ini sudah tercatat.',
+                $field => $message,
             ]);
         }
     }

@@ -35,6 +35,7 @@ return [
 
     'politicians_per_page' => 24,
     'parties_per_page' => 24,
+    'businesses_per_page' => 24,
     'reports_per_page' => 20,
     'members_per_page' => 12,
     'api_per_page' => 20,

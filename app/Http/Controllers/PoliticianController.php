@@ -8,11 +8,13 @@ use App\Catalog\RelationshipGraph;
 use App\Inference\InferenceRunner;
 use App\Inference\ProposalQueue;
 use App\Models\Audit;
+use App\Models\BusinessAffiliation;
 use App\Models\Party;
 use App\Models\Politician;
 use App\Models\PublicRecord;
 use App\Models\RecordAttachment;
 use App\Models\Topic;
+use App\Security\Turnstile;
 use App\Tracking\SubmissionCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -215,21 +217,21 @@ class PoliticianController extends Controller
             'evtype' => 'required|string|max:100',
             'link' => 'required|url|max:2048',
             'occurred_on' => 'nullable|date',
-            'captcha' => 'required|string|max:12',
+            'cf-turnstile-response' => 'required|string|max:2048',
             'media' => 'nullable|array|max:3',
             'media.*' => 'file|max:2048|mimetypes:image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,application/pdf',
         ], [
             'party_name.required_if' => 'Ketik nama partai jika memilih lainnya.',
             'summary.required_unless' => 'Ringkasan wajib diisi untuk dugaan atau vonis.',
             'quote.required_if' => 'Kutipan wajib diisi untuk pernyataan publik.',
-            'captcha.required' => 'Kode captcha wajib diisi.',
+            'cf-turnstile-response.required' => 'Selesaikan verifikasi keamanan terlebih dahulu.',
             'media.max' => 'Maksimal 3 berkas.',
             'media.*.max' => 'Setiap berkas maksimal 2 MB.',
             'media.*.mimetypes' => 'Berkas harus berupa foto, video MP4 atau WebM, atau PDF.',
         ]);
 
         $validator->after(function ($validator) use ($request) {
-            $this->assertCaptcha($request, $validator);
+            app(Turnstile::class)->assert($request, $validator, 'report');
             $this->assertPartyChoice($request, $validator);
         });
 
@@ -282,7 +284,8 @@ class PoliticianController extends Controller
         for ($attempt = 0; $attempt < 3; $attempt++) {
             $code = SubmissionCode::generate();
             $hash = SubmissionCode::hash($code);
-            $taken = PublicRecord::query()->where('tracking_code_hash', $hash)->exists();
+            $taken = PublicRecord::query()->where('tracking_code_hash', $hash)->exists()
+                || BusinessAffiliation::query()->where('tracking_code_hash', $hash)->exists();
 
             if ($taken) {
                 continue;
@@ -421,7 +424,10 @@ class PoliticianController extends Controller
         ]);
         $stillPublished = $politician->records()
             ->where('status', PublicRecord::STATUS_PUBLISHED)
-            ->exists();
+            ->exists()
+            || $politician->businessAffiliations()
+                ->where('status', BusinessAffiliation::STATUS_PUBLISHED)
+                ->exists();
         $politician->status = $stillPublished ? 1 : 0;
         $politician->save();
 
@@ -481,13 +487,4 @@ class PoliticianController extends Controller
         }
     }
 
-    private function assertCaptcha(Request $request, \Illuminate\Validation\Validator $validator): void
-    {
-        $expected = strtoupper((string) $request->session()->pull('report_captcha', ''));
-        $given = strtoupper(preg_replace('/\s+/', '', (string) $request->input('captcha')));
-
-        if ($expected === '' || strlen($expected) !== strlen($given) || ! hash_equals($expected, $given)) {
-            $validator->errors()->add('captcha', 'Kode captcha tidak cocok. Minta kode baru.');
-        }
-    }
 }

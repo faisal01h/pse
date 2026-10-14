@@ -45,7 +45,10 @@ export default function DisputeDiterima({ auth, code }) {
                 ) : (
                     <p className="mt-4 max-w-3xl">Kode sanggahan sudah tidak ditampilkan di halaman ini. Pemeriksa tetap menyimpan kode itu.</p>
                 )}
-                <Link href="/" className="gov-button mt-6">Kembali ke beranda</Link>
+                <div className="mt-6 flex flex-wrap gap-4">
+                    <Link href="/reports/track?kind=dispute" className="gov-button">Lacak sanggahan</Link>
+                    <Link href="/">Kembali ke beranda</Link>
+                </div>
             </div>
         </Public>
     );

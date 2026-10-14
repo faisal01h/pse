@@ -16,6 +16,7 @@
         @viteReactRefresh
         @vite('resources/js/app.jsx')
         @inertiaHead
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     </head>
     <body class="font-sans antialiased">
         @inertia

@@ -2,6 +2,8 @@
 
 namespace App\Search;
 
+use App\Models\Business;
+use App\Models\BusinessAffiliation;
 use App\Models\Party;
 use App\Models\Politician;
 use App\Models\PublicRecord;
@@ -42,6 +44,7 @@ class SearchIndexer
             $indexer = app(self::class);
             $indexer->syncPolitician($politician);
             $indexer->syncRecordsForPolitician($politician);
+            $indexer->syncBusinessesForPolitician($politician);
 
             if ($politician->party_id) {
                 $politician->loadMissing('party');
@@ -118,6 +121,28 @@ class SearchIndexer
                 app(self::class)->syncRecord($attachment->record);
             }
         });
+
+        Business::saved(function (Business $business) {
+            app(self::class)->syncBusiness($business);
+        });
+
+        Business::deleting(function (Business $business) {
+            app(self::class)->forget(SearchDocument::TYPE_BUSINESS, $business->id);
+        });
+
+        BusinessAffiliation::saved(function (BusinessAffiliation $affiliation) {
+            $affiliation->loadMissing('business');
+            if ($affiliation->business) {
+                app(self::class)->syncBusiness($affiliation->business);
+            }
+        });
+
+        BusinessAffiliation::deleted(function (BusinessAffiliation $affiliation) {
+            $business = Business::query()->find($affiliation->business_id);
+            if ($business) {
+                app(self::class)->syncBusiness($business);
+            }
+        });
     }
 
     public function reindexAll(): int
@@ -151,11 +176,75 @@ class SearchIndexer
             $count++;
         }
 
+        $businessIds = [];
+        foreach (Business::query()->orderBy('id')->get() as $business) {
+            $this->syncBusiness($business);
+            $businessIds[] = $business->id;
+            $count++;
+        }
+
         $this->forgetMissing(SearchDocument::TYPE_PARTY, $partyIds);
         $this->forgetMissing(SearchDocument::TYPE_POLITICIAN, $politicianIds);
         $this->forgetMissing(SearchDocument::TYPE_RECORD, $recordIds);
+        $this->forgetMissing(SearchDocument::TYPE_BUSINESS, $businessIds);
 
         return $count;
+    }
+
+    public function syncBusinessesForPolitician(Politician $politician): void
+    {
+        if (! $this->ready()) {
+            return;
+        }
+
+        $businessIds = BusinessAffiliation::query()
+            ->where('politician_id', $politician->id)
+            ->pluck('business_id')
+            ->unique()
+            ->filter();
+
+        foreach (Business::query()->whereIn('id', $businessIds)->get() as $business) {
+            $this->syncBusiness($business);
+        }
+    }
+
+    public function syncBusiness(Business $business): void
+    {
+        if (! $this->ready() || ! $business->id) {
+            return;
+        }
+
+        $publishedAffiliations = BusinessAffiliation::query()
+            ->where('business_id', $business->id)
+            ->where('status', BusinessAffiliation::STATUS_PUBLISHED)
+            ->whereHas('politician', fn ($q) => $q->where('status', 1))
+            ->with('politician:id,name')
+            ->get();
+
+        $visible = (int) $business->status === Business::STATUS_PUBLISHED
+            && $publishedAffiliations->isNotEmpty();
+
+        if (! $visible) {
+            $this->forget(SearchDocument::TYPE_BUSINESS, $business->id);
+
+            return;
+        }
+
+        $names = $publishedAffiliations->pluck('politician.name')->filter()->implode(', ');
+        $body = trim(implode("\n", array_filter([
+            $business->name,
+            $business->sector,
+            $names !== '' ? 'Tokoh terkait: '.$names : null,
+        ])));
+
+        $this->upsert(SearchDocument::TYPE_BUSINESS, $business->id, [
+            'label' => 'Bisnis',
+            'title' => $business->name,
+            'subtitle' => $business->sector ?: 'Afiliasi bisnis tokoh publik',
+            'body' => $body,
+            'href' => '/businesses/'.$business->id,
+            'image_url' => null,
+        ]);
     }
 
     public function syncParty(Party $party): void

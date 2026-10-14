@@ -37,6 +37,9 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'toast' => fn () => $request->session()->get('toast'),
+            'turnstile' => [
+                'sitekey' => config('turnstile.sitekey'),
+            ],
             'ziggy' => function () use ($request) {
                 return array_merge((new Ziggy)->toArray(), [
                     'location' => $request->url(),

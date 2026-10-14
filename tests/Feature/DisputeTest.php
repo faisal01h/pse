@@ -7,11 +7,18 @@ use App\Models\Politician;
 use App\Models\PublicRecord;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\FakesTurnstile;
 use Tests\TestCase;
 
 class DisputeTest extends TestCase
 {
-    use RefreshDatabase;
+    use FakesTurnstile, RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
 
     public function test_dispute_form_is_a_public_menu_page(): void
     {
@@ -24,15 +31,16 @@ class DisputeTest extends TestCase
 
     public function test_a_published_record_can_be_disputed(): void
     {
+        $this->fakeTurnstile('dispute');
         $record = $this->record(PublicRecord::STATUS_PUBLISHED);
 
-        $this->withSession(['report_captcha' => 'ABCDE'])->post('/dispute', [
+        $this->post('/dispute', $this->withTurnstileToken([
+            'target' => 'record',
             'public_record_id' => $record->id,
             'reason' => 'Kutipan ini tidak ada di transkrip resmi yang saya tautkan.',
             'source_url' => 'https://example.com/transkrip',
             'source_type' => 'transkrip',
-            'captcha' => 'ABCDE',
-        ])->assertRedirect(route('dispute.received'));
+        ]))->assertRedirect(route('dispute.received'));
 
         $receipt = $this->get(route('dispute.received'));
         $receipt->assertOk();
@@ -63,15 +71,16 @@ class DisputeTest extends TestCase
 
     public function test_unpublished_records_cannot_be_disputed(): void
     {
+        $this->fakeTurnstile('dispute');
         $record = $this->record(PublicRecord::STATUS_PENDING);
 
-        $this->withSession(['report_captcha' => 'ABCDE'])->post('/dispute', [
+        $this->post('/dispute', $this->withTurnstileToken([
+            'target' => 'record',
             'public_record_id' => $record->id,
             'reason' => 'Kutipan ini tidak ada di transkrip resmi yang saya tautkan.',
             'source_url' => 'https://example.com/transkrip',
             'source_type' => 'transkrip',
-            'captcha' => 'ABCDE',
-        ])->assertSessionHasErrors('public_record_id');
+        ]))->assertSessionHasErrors('public_record_id');
 
         $this->assertDatabaseCount('disputes', 0);
 
