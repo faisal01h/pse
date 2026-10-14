@@ -1,30 +1,47 @@
-import { Link } from '@inertiajs/inertia-react';
+import { Link, usePage } from '@inertiajs/inertia-react';
 
 const items = [
     {
         label: 'Pemeriksaan',
-        match: ['dashboard', 'reports.review'],
+        match: ['dashboard', 'reports.review', 'affiliations.review'],
         href: () => route('dashboard'),
+        show: () => true,
     },
     {
         label: 'Politisi',
         match: ['admin.politicians.*'],
         href: () => route('admin.politicians.index'),
+        show: () => true,
     },
     {
         label: 'Partai',
         match: ['admin.parties.*'],
         href: () => route('admin.parties.index'),
+        show: () => true,
     },
     {
         label: 'Halaman',
         match: ['admin.pages.*'],
         href: () => route('admin.pages.index'),
+        show: () => true,
     },
     {
         label: 'Audit',
         match: ['admin.audits.*'],
         href: () => route('admin.audits.index'),
+        show: () => true,
+    },
+    {
+        label: 'Peran',
+        match: ['admin.roles.*'],
+        href: () => route('admin.roles.index'),
+        show: (permissions) => permissions.includes('roles.view'),
+    },
+    {
+        label: 'Pengguna',
+        match: ['admin.users.*'],
+        href: () => route('admin.users.index'),
+        show: (permissions) => permissions.includes('users.view'),
     },
 ];
 
@@ -37,10 +54,14 @@ function isCurrent(match) {
 }
 
 export default function AdminNav() {
+    const { auth } = usePage().props;
+    const permissions = auth?.permissions ?? [];
+    const visible = items.filter((item) => item.show(permissions));
+
     return (
         <nav aria-label="Menu kelola" className="border-b-2 border-ink bg-canvas">
             <ul className="mx-auto flex max-w-[960px] gap-1 overflow-x-auto px-2">
-                {items.map((item) => {
+                {visible.map((item) => {
                     const current = isCurrent(item.match);
 
                     return (

@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, RecordsChanges;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable, RecordsChanges;
 
     /**
      * The attributes that are mass assignable.
@@ -22,6 +23,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'is_active',
     ];
 
     /**
@@ -41,5 +43,36 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'is_active' => 'boolean',
     ];
+
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active;
+    }
+
+    /**
+     * Active users who can manage roles or user access.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public static function activeAccessManagers()
+    {
+        return static::query()
+            ->where('is_active', true)
+            ->permission(['roles.manage', 'users.manage']);
+    }
+
+    public function isLastActiveAccessManager(): bool
+    {
+        if (! $this->isActive()) {
+            return false;
+        }
+
+        if (! $this->can('roles.manage') && ! $this->can('users.manage')) {
+            return false;
+        }
+
+        return static::activeAccessManagers()->count() <= 1;
+    }
 }

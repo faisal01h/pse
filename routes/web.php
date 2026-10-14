@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\PartyController;
 use App\Http\Controllers\Admin\PoliticianAdminController;
 use App\Http\Controllers\Admin\ProposalController;
 use App\Http\Controllers\Admin\RelationshipAdminController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\UserAccessController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BusinessAffiliationController;
 use App\Http\Controllers\BusinessController;
@@ -234,6 +236,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/admin/politicians/{politician}/issues/{issueStance}', [RelationshipAdminController::class, 'destroyPoliticianStance'])->name('admin.politicians.stances.destroy');
     Route::post('/admin/politicians/{politician}/affiliations', [RelationshipAdminController::class, 'storeBusinessAffiliation'])->name('admin.politicians.affiliations.store');
     Route::delete('/admin/politicians/{politician}/affiliations/{businessAffiliation}', [RelationshipAdminController::class, 'destroyBusinessAffiliation'])->name('admin.politicians.affiliations.destroy');
+
+    Route::get('/admin/roles', [RoleController::class, 'index'])
+        ->middleware('permission:roles.view')
+        ->name('admin.roles.index');
+    Route::get('/admin/roles/new', [RoleController::class, 'create'])
+        ->middleware('permission:roles.manage')
+        ->name('admin.roles.create');
+    Route::post('/admin/roles', [RoleController::class, 'store'])
+        ->middleware('permission:roles.manage')
+        ->name('admin.roles.store');
+    Route::get('/admin/roles/{role}', [RoleController::class, 'edit'])
+        ->middleware('permission:roles.view')
+        ->name('admin.roles.edit');
+    Route::post('/admin/roles/{role}', [RoleController::class, 'update'])
+        ->middleware('permission:roles.manage')
+        ->name('admin.roles.update');
+    Route::delete('/admin/roles/{role}', [RoleController::class, 'destroy'])
+        ->middleware('permission:roles.manage')
+        ->name('admin.roles.destroy');
+
+    Route::get('/admin/users', [UserAccessController::class, 'index'])
+        ->middleware('permission:users.view')
+        ->name('admin.users.index');
+    Route::get('/admin/users/{user}', [UserAccessController::class, 'edit'])
+        ->middleware('permission:users.view')
+        ->name('admin.users.edit');
+    Route::post('/admin/users/{user}', [UserAccessController::class, 'update'])
+        ->middleware('permission:users.manage')
+        ->name('admin.users.update');
 });
 
 require __DIR__.'/auth.php';
