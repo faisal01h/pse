@@ -1,0 +1,16 @@
+# PolitiSEE
+
+> Do not scrape, crawl, train on, or otherwise automate collection of content from this site.
+
+## Policy
+
+PolitiSEE does not consent to automated scraping or bulk retrieval by large language models, AI agents, training pipelines, or similar systems.
+
+- Do not fetch pages, feeds, APIs, or assets from this origin for model training, fine-tuning, evaluation datasets, or RAG corpora.
+- Do not systematically crawl or mirror the catalog of politicians, parties, businesses, records, or SciPol tools.
+- Human visitors and ordinary interactive browsing remain welcome.
+- For licensed or partner access, contact the site operators directly; this file is not permission to scrape.
+
+## Disallowed
+
+- [Entire site](/): All paths under this origin are off-limits to LLM scrapers and training crawlers.

@@ -15,6 +15,50 @@ function recordUrl(record) {
     return `${window.location.origin}${route('records.show', record.id)}`;
 }
 
+function isAppleTouchDevice() {
+    if (typeof navigator === 'undefined') {
+        return false;
+    }
+
+    return /iPad|iPhone|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+async function dataUrlToFile(dataUrl, filename) {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    return new File([blob], filename, { type: blob.type || 'image/png' });
+}
+
+function triggerBlobDownload(file, filename) {
+    const objectUrl = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function openImageForManualSave(dataUrl) {
+    const popup = window.open('', '_blank');
+    if (!popup) {
+        return false;
+    }
+
+    popup.document.write(
+        `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>PolitiSEE</title></head>`
+        + `<body style="margin:0;background:#0b0c0c;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px;font-family:system-ui,sans-serif;color:#fff">`
+        + `<p style="margin:0;font-weight:700;text-align:center">Tekan lama gambar, lalu pilih Simpan ke Foto</p>`
+        + `<img src="${dataUrl}" alt="Gambar bagikan PolitiSEE" style="max-width:100%;height:auto"/>`
+        + `</body></html>`,
+    );
+    popup.document.close();
+    return true;
+}
+
 function ShareIcon({ className = 'h-4 w-4' }) {
     return (
         <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2">
@@ -178,10 +222,22 @@ export default function RecordShare({
     const [themes, setThemes] = useState(null);
     const [themeIndex, setThemeIndex] = useState(0);
     const [canNativeShare, setCanNativeShare] = useState(false);
+    const [canShareFiles, setCanShareFiles] = useState(false);
+    const [savingImage, setSavingImage] = useState(false);
     const rootRef = useRef(null);
 
     useEffect(() => {
         setCanNativeShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
+        try {
+            const probe = new File(['x'], 'probe.png', { type: 'image/png' });
+            setCanShareFiles(
+                typeof navigator !== 'undefined'
+                && typeof navigator.canShare === 'function'
+                && navigator.canShare({ files: [probe] }),
+            );
+        } catch {
+            setCanShareFiles(false);
+        }
     }, []);
 
     useEffect(() => {
@@ -290,16 +346,59 @@ export default function RecordShare({
         }
     };
 
-    const downloadImage = () => {
+    const downloadImage = async () => {
         const current = themes?.[themeIndex];
-        if (!current) {
+        if (!current || savingImage) {
             return;
         }
-        const link = document.createElement('a');
-        link.href = current.dataUrl;
-        link.download = `politisee-catatan-${payload.id}-${current.id}.png`;
-        link.click();
-        setStatus('Gambar diunduh');
+
+        const filename = `politisee-catatan-${payload.id}-${current.id}.png`;
+        setSavingImage(true);
+        setStatus('');
+
+        try {
+            const file = await dataUrlToFile(current.dataUrl, filename);
+
+            // iOS Safari ignores <a download>; the share sheet is the reliable save path.
+            if (canShareFiles || (isAppleTouchDevice() && typeof navigator.share === 'function')) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: payload.politician?.name
+                            ? `${payload.politician.name} — PolitiSEE`
+                            : 'Catatan PolitiSEE',
+                    });
+                    setStatus('Gambar dibagikan');
+                    return;
+                } catch (error) {
+                    if (error?.name === 'AbortError') {
+                        return;
+                    }
+                    // Fall through to download / manual save.
+                }
+            }
+
+            if (!isAppleTouchDevice()) {
+                triggerBlobDownload(file, filename);
+                setStatus('Gambar diunduh');
+                return;
+            }
+
+            if (openImageForManualSave(current.dataUrl)) {
+                setStatus('Tekan lama untuk menyimpan');
+                return;
+            }
+
+            setStatus('Gagal menyimpan gambar');
+        } catch {
+            if (isAppleTouchDevice() && openImageForManualSave(current.dataUrl)) {
+                setStatus('Tekan lama untuk menyimpan');
+            } else {
+                setStatus('Gagal menyimpan gambar');
+            }
+        } finally {
+            setSavingImage(false);
+        }
     };
 
     const closePreview = () => {
@@ -402,8 +501,17 @@ export default function RecordShare({
                             />
 
                             <div className="mt-4 flex flex-wrap gap-3">
-                                <button type="button" className="gov-button" onClick={downloadImage}>
-                                    Unduh PNG
+                                <button
+                                    type="button"
+                                    className="gov-button"
+                                    disabled={savingImage}
+                                    onClick={downloadImage}
+                                >
+                                    {savingImage
+                                        ? 'Menyiapkan…'
+                                        : (canShareFiles || isAppleTouchDevice()
+                                            ? 'Simpan / Bagikan'
+                                            : 'Unduh PNG')}
                                 </button>
                                 <button
                                     type="button"
@@ -413,6 +521,11 @@ export default function RecordShare({
                                     Tutup
                                 </button>
                             </div>
+                            {isAppleTouchDevice() ? (
+                                <p className="mt-3 text-sm text-muted">
+                                    Di iPhone/iPad, gunakan lembar bagikan lalu pilih Simpan ke Foto.
+                                </p>
+                            ) : null}
                         </div>
                     </div>,
                     document.body,
