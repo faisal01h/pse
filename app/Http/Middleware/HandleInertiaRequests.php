@@ -42,7 +42,11 @@ class HandleInertiaRequests extends Middleware
                     ? $user->getAllPermissions()->pluck('name')->values()->all()
                     : [],
             ],
+            'appUrl' => rtrim((string) config('app.url'), '/'),
             'toast' => fn () => $request->session()->get('toast'),
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+            ],
             'turnstile' => [
                 'sitekey' => config('turnstile.sitekey'),
             ],

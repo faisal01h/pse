@@ -9,6 +9,7 @@ use App\Models\Party;
 use App\Models\PartyLink;
 use App\Models\Politician;
 use App\Models\PoliticianLink;
+use App\Models\PublicRecord;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
@@ -24,7 +25,15 @@ class RelationshipGraph
             $politicians = new EloquentCollection($politicians->all());
         }
 
-        $politicians->load(['ideologyPositions', 'issueStances.issue']);
+        $politicians->load([
+            'ideologyPositions.basisRecords' => function ($query) {
+                $query->where('status', PublicRecord::STATUS_PUBLISHED)
+                    ->with('topics:id,name')
+                    ->orderByDesc('occurred_on')
+                    ->orderByDesc('id');
+            },
+            'issueStances.issue',
+        ]);
         $ids = $politicians->pluck('id');
         $links = PoliticianLink::query()
             ->where(function ($query) use ($ids) {
@@ -69,7 +78,14 @@ class RelationshipGraph
 
     public function presentParty(Party $party): Party
     {
-        $party->load(['ideologyPositions', 'issueStances.issue']);
+        $party->load([
+            'ideologyPositions.basisRecords' => function ($query) {
+                $query->where('status', PublicRecord::STATUS_PUBLISHED)
+                    ->orderByDesc('occurred_on')
+                    ->orderByDesc('id');
+            },
+            'issueStances.issue',
+        ]);
         $links = PartyLink::query()
             ->where(function ($query) use ($party) {
                 $query->where('party_a_id', $party->id)->orWhere('party_b_id', $party->id);
@@ -177,6 +193,14 @@ class RelationshipGraph
 
                 $definition = IdeologyPosition::AXES[$position->axis] ?? null;
 
+                $records = $position->relationLoaded('basisRecords')
+                    ? $position->basisRecords
+                    : $position->basisRecords()
+                        ->where('status', PublicRecord::STATUS_PUBLISHED)
+                        ->orderByDesc('occurred_on')
+                        ->orderByDesc('id')
+                        ->get();
+
                 return [
                     'axis' => $position->axis,
                     'axis_label' => $position->axisLabel(),
@@ -187,6 +211,22 @@ class RelationshipGraph
                     'note' => $position->note,
                     'source_url' => $position->source_url,
                     'source_type' => $position->source_type,
+                    'records' => $records->map(function (PublicRecord $record) {
+                        $excerpt = trim((string) ($record->quote ?: $record->summary));
+                        if (mb_strlen($excerpt) > 120) {
+                            $excerpt = mb_substr($excerpt, 0, 117).'…';
+                        }
+
+                        return [
+                            'id' => $record->id,
+                            'category' => $record->category,
+                            'excerpt' => $excerpt,
+                            'source_url' => $record->source_url,
+                            'source_type' => $record->source_type,
+                            'href' => route('records.show', $record),
+                            'date' => optional($record->occurred_on ?? $record->reviewed_at ?? $record->created_at)->toDateString(),
+                        ];
+                    })->values()->all(),
                 ];
             })
             ->filter()
@@ -208,6 +248,7 @@ class RelationshipGraph
                 'summary' => $affiliation->summary,
                 'source_url' => $affiliation->source_url,
                 'source_type' => $affiliation->source_type,
+                'reliability_level' => $affiliation->reliability_level,
                 'business' => [
                     'id' => $affiliation->business->id,
                     'name' => $affiliation->business->name,

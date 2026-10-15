@@ -59,6 +59,7 @@ class BusinessController extends Controller
                 'summary' => $affiliation->summary,
                 'source_url' => $affiliation->source_url,
                 'source_type' => $affiliation->source_type,
+                'reliability_level' => $affiliation->reliability_level,
                 'occurred_on' => optional($affiliation->occurred_on)->toDateString(),
                 'attachments' => $affiliation->attachments->map(fn ($file) => [
                     'id' => $file->id,

@@ -55,7 +55,7 @@ class DisputeController extends Controller
                 'politician' => $record->politician?->name,
                 'category' => $record->category,
                 'excerpt' => $this->excerpt($record),
-                'href' => route('politicians.show', $record->politician_id).'#record-'.$record->id,
+                'href' => route('records.show', $record),
             ])
             ->values();
     }

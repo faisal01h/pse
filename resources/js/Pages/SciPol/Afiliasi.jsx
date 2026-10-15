@@ -67,6 +67,7 @@ export default function Afiliasi({
                             <SciPolTh>Sector</SciPolTh>
                             <SciPolTh>Type</SciPolTh>
                             <SciPolTh>%</SciPolTh>
+                            <SciPolTh>Reliability</SciPolTh>
                             <SciPolTh>Source</SciPolTh>
                         </tr>
                     </thead>
@@ -82,6 +83,7 @@ export default function Afiliasi({
                                 <SciPolTd>{row.business.sector || '—'}</SciPolTd>
                                 <SciPolTd>{row.type_label}</SciPolTd>
                                 <SciPolTd>{row.ownership_percent ?? '—'}</SciPolTd>
+                                <SciPolTd>{row.reliability_level || '—'}</SciPolTd>
                                 <SciPolTd>
                                     {row.source_url ? (
                                         <a href={row.source_url} target="_blank" rel="noreferrer">

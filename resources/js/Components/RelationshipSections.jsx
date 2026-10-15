@@ -1,69 +1,145 @@
 import { Link } from '@inertiajs/inertia-react';
 import Spectrum from '@/Components/Spectrum';
+import ReliabilityBadge from '@/Components/ReliabilityBadge';
+import ProfileSection from '@/Components/ProfileSection';
 
-export default function RelationshipSections({ tendencies = [], connections = [], stances = [], affiliations = [] }) {
-    if (tendencies.length === 0 && connections.length === 0 && stances.length === 0 && affiliations.length === 0) {
+function SourceLink({ url, type }) {
+    if (!url) {
         return null;
     }
 
     return (
-        <div className="flex flex-col gap-6 border-t border-ink/20 pt-4">
-            {affiliations.length > 0 ? (
-                <section>
-                    <h3 className="text-xl font-bold">Afiliasi bisnis</h3>
-                    <p className="mt-1 text-muted">Kepemilikan atau endorsemen yang dicatat dari sumber publik.</p>
-                    <ul className="mt-3 flex flex-col gap-3">
+        <a href={url} className="mt-2 inline-block font-bold" target="_blank" rel="noreferrer">
+            Sumber: {type}
+        </a>
+    );
+}
+
+function EntryList({ children }) {
+    return <ul className="divide-y-2 divide-ink/10 border-t-2 border-ink/10">{children}</ul>;
+}
+
+function Entry({ children }) {
+    return <li className="py-5 first:pt-4">{children}</li>;
+}
+
+export default function RelationshipSections({
+    tendencies = [],
+    connections = [],
+    stances = [],
+    affiliations = [],
+    asSections = true,
+}) {
+    if (tendencies.length === 0 && connections.length === 0 && stances.length === 0 && affiliations.length === 0) {
+        return null;
+    }
+
+    const wrap = (id, title, lead, body) => {
+        if (!asSections) {
+            return (
+                <div key={id} className="mt-8 first:mt-0">
+                    <h3 className="text-xl font-bold">{title}</h3>
+                    {lead ? <p className="mt-1 text-muted">{lead}</p> : null}
+                    <div className="mt-4">{body}</div>
+                </div>
+            );
+        }
+
+        return (
+            <ProfileSection key={id} id={id} title={title} lead={lead} className="mt-14">
+                {body}
+            </ProfileSection>
+        );
+    };
+
+    return (
+        <div className="flex flex-col">
+            {affiliations.length > 0
+                ? wrap(
+                    'afiliasi',
+                    'Afiliasi bisnis',
+                    'Kepemilikan atau endorsemen yang dicatat dari sumber publik.',
+                    <EntryList>
                         {affiliations.map((item) => (
-                            <li key={`${item.label}-${item.business.id}`}>
-                                <p className="font-bold">{item.label} <Link href={item.business.href}>{item.business.name}</Link></p>
-                                <p>{item.summary}</p>
-                                <a href={item.source_url} className="font-bold" target="_blank" rel="noreferrer">Sumber: {item.source_type}</a>
-                            </li>
+                            <Entry key={`${item.label}-${item.business.id}`}>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-lg font-bold">
+                                        {item.label}{' '}
+                                        <Link href={item.business.href}>{item.business.name}</Link>
+                                    </p>
+                                    <ReliabilityBadge level={item.reliability_level} />
+                                </div>
+                                {item.summary ? <p className="mt-2 leading-relaxed">{item.summary}</p> : null}
+                                <SourceLink url={item.source_url} type={item.source_type} />
+                            </Entry>
                         ))}
-                    </ul>
-                </section>
-            ) : null}
-            {tendencies.length > 0 ? (
-                <section>
-                    <h3 className="text-xl font-bold">Kecenderungan</h3>
-                    <p className="mt-1 text-muted">Titik pada sumbu dicatat dari sumber publik.</p>
-                    <ul className="mt-3 flex flex-col gap-4">
+                    </EntryList>,
+                )
+                : null}
+
+            {tendencies.length > 0
+                ? wrap(
+                    'kecenderungan',
+                    'Kecenderungan',
+                    'Titik pada sumbu politik dicatat dari sumber publik.',
+                    <EntryList>
                         {tendencies.map((item) => (
-                            <li key={item.axis}>
-                                <Spectrum label={item.axis_label} left={item.left} right={item.right} score={item.score} />
-                                {item.samples > 1 ? <p className="mt-2 text-muted">Rata-rata dari {item.samples} catatan.</p> : null}
-                                <p className="mt-2">{item.note}</p>
-                                <a href={item.source_url} className="font-bold" target="_blank" rel="noreferrer">Sumber: {item.source_type}</a>
-                            </li>
+                            <Entry key={item.axis}>
+                                <Spectrum
+                                    label={item.axis_label}
+                                    left={item.left}
+                                    right={item.right}
+                                    score={item.score}
+                                    records={item.records}
+                                />
+                                {(item.records?.length ?? 0) === 0 && item.samples > 1 ? (
+                                    <p className="mt-1.5 text-sm text-muted">Rata-rata dari {item.samples} catatan.</p>
+                                ) : null}
+                                {item.note ? <p className="mt-1.5 text-sm leading-relaxed">{item.note}</p> : null}
+                                {(item.records?.length ?? 0) === 0 ? (
+                                    <SourceLink url={item.source_url} type={item.source_type} />
+                                ) : null}
+                            </Entry>
                         ))}
-                    </ul>
-                </section>
-            ) : null}
-            {connections.length > 0 ? (
-                <section>
-                    <h3 className="text-xl font-bold">Hubungan</h3>
-                    <ul className="mt-3 flex flex-col gap-3">
+                    </EntryList>,
+                )
+                : null}
+
+            {connections.length > 0
+                ? wrap(
+                    'hubungan',
+                    'Hubungan',
+                    'Kaitan dengan tokoh atau partai lain yang tercatat dari sumber.',
+                    <EntryList>
                         {connections.map((item) => (
-                            <li key={`${item.label}-${item.other.id}`}>
-                                <p className="font-bold">{item.label} <Link href={item.other.href}>{item.other.name}</Link></p>
-                                <p>{item.summary}</p>
-                                <a href={item.source_url} className="font-bold" target="_blank" rel="noreferrer">Sumber: {item.source_type}</a>
-                            </li>
+                            <Entry key={`${item.label}-${item.other.id}`}>
+                                <p className="text-lg font-bold">
+                                    {item.label} <Link href={item.other.href}>{item.other.name}</Link>
+                                </p>
+                                {item.summary ? <p className="mt-2 leading-relaxed">{item.summary}</p> : null}
+                                <SourceLink url={item.source_url} type={item.source_type} />
+                            </Entry>
                         ))}
-                    </ul>
-                </section>
-            ) : null}
-            {stances.length > 0 ? (
-                <section>
-                    <h3 className="text-xl font-bold">Isu</h3>
-                    <ul className="mt-3 flex flex-col gap-3">
+                    </EntryList>,
+                )
+                : null}
+
+            {stances.length > 0
+                ? wrap(
+                    'isu',
+                    'Posisi isu',
+                    'Sikap terhadap isu publik yang tercatat dari sumber.',
+                    <EntryList>
                         {stances.map((item) => (
-                            <li key={`${item.issue}-${item.position_label}`}>
-                                <p className="font-bold">{item.issue}: {item.position_label}</p>
-                                <p>{item.note}</p>
-                                <a href={item.source_url} className="font-bold" target="_blank" rel="noreferrer">Sumber: {item.source_type}</a>
+                            <Entry key={`${item.issue}-${item.position_label}`}>
+                                <p className="text-lg font-bold">
+                                    {item.issue}
+                                    <span className="text-muted"> · {item.position_label}</span>
+                                </p>
+                                {item.note ? <p className="mt-2 leading-relaxed">{item.note}</p> : null}
+                                <SourceLink url={item.source_url} type={item.source_type} />
                                 {item.aligned?.length > 0 ? (
-                                    <p className="mt-1">
+                                    <p className="mt-2 text-muted">
                                         Selaras pada isu ini:{' '}
                                         {item.aligned.map((other, index) => (
                                             <span key={other.href}>
@@ -73,11 +149,11 @@ export default function RelationshipSections({ tendencies = [], connections = []
                                         ))}
                                     </p>
                                 ) : null}
-                            </li>
+                            </Entry>
                         ))}
-                    </ul>
-                </section>
-            ) : null}
+                    </EntryList>,
+                )
+                : null}
         </div>
     );
 }

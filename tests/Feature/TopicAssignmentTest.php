@@ -99,6 +99,7 @@ class TopicAssignmentTest extends TestCase
             'source_type' => 'Berita',
             'source_url' => PublicRecord::query()->where('politician_id', $politician->id)->value('source_url'),
             'review_note' => 'Sumber terbuka, kutipan sesuai, dan jenis catatan memang pernyataan publik.',
+            'reliability_level' => 'high',
             'check_source' => '1',
             'check_wording' => '1',
             'check_category' => '1',

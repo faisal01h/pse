@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\PoliticianController;
+use App\Http\Controllers\PublicRecordController;
 use App\Models\Politician;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,12 @@ Route::middleware('throttle:catalog-api')->group(function () {
     Route::get('/politicians/{politician}', function (Politician $politician, PoliticianController $politicians) {
         return $politicians->show($politician);
     });
+
+    Route::get('/public-records', [PublicRecordController::class, 'apiIndex'])
+        ->name('api.public-records.index');
+
+    Route::get('/public-records/{record}', [PublicRecordController::class, 'apiShow'])
+        ->name('api.public-records.show');
 });
 
 Route::middleware('auth:sanctum')->get('/reports', [PoliticianController::class, 'pending']);

@@ -157,6 +157,7 @@ class AffiliationDisputeRetractTest extends TestCase
             'source_type' => $affiliation->source_type,
             'source_url' => $affiliation->source_url,
             'review_note' => str_repeat('Catatan pemeriksa setelah menolak sanggahan. ', 3),
+            'reliability_level' => 'medium',
             'check_source' => '1',
             'check_wording' => '1',
             'check_category' => '1',

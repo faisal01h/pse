@@ -5,8 +5,12 @@ namespace App\Http\Controllers;
 use App\Auditing\InferenceNotice;
 use App\Catalog\PageMeta;
 use App\Catalog\RelationshipGraph;
+use App\Catalog\ReliabilityLevel;
 use App\Inference\InferenceRunner;
 use App\Inference\ProposalQueue;
+use App\Plugins\AutoVet\Jobs\AutoVetJob;
+use App\Plugins\AutoVet\Models\AutoVetRun;
+use App\Plugins\PluginManager;
 use App\Models\Audit;
 use App\Models\BusinessAffiliation;
 use App\Models\Party;
@@ -38,7 +42,10 @@ class PoliticianController extends Controller
     /**
      * @return array{items: array<int, array<string, mixed>>, meta: array{current: int, last: int, prev: ?int, next: ?int}}
      */
-    public function publishedReports(?int $partyId = null): array
+    /**
+     * @return array{items: array<int, array<string, mixed>>, meta: array{current: int, last: int, prev: ?int, next: ?int}, total: int}
+     */
+    public function publishedReports(?int $partyId = null, ?int $topicId = null): array
     {
         $page = PublicRecord::query()
             ->where('status', PublicRecord::STATUS_PUBLISHED)
@@ -48,6 +55,10 @@ class PoliticianController extends Controller
                     $query->where('party_id', $partyId);
                 }
             })
+            ->when($topicId, fn ($query) => $query->whereHas(
+                'topics',
+                fn ($topics) => $topics->where('topics.id', $topicId)
+            ))
             ->with(['politician.party', 'attachments', 'topics'])
             ->orderByRaw('COALESCE(occurred_on, reviewed_at, created_at) DESC')
             ->orderByDesc('id')
@@ -64,8 +75,10 @@ class PoliticianController extends Controller
                     'summary' => $record->summary,
                     'source_url' => $record->source_url,
                     'source_type' => $record->source_type,
+                    'reliability_level' => $record->reliability_level,
+                    'reliability_label' => ReliabilityLevel::label($record->reliability_level),
                     'date' => optional($date)->toDateString(),
-                    'href' => route('politicians.show', $record->politician_id).'#record-'.$record->id,
+                    'href' => route('records.show', $record),
                     'politician' => [
                         'id' => $record->politician->id,
                         'name' => $record->politician->name,
@@ -84,6 +97,7 @@ class PoliticianController extends Controller
                 ];
             })->values()->all(),
             'meta' => PageMeta::from($page),
+            'total' => $page->total(),
         ];
     }
 
@@ -187,6 +201,12 @@ class PoliticianController extends Controller
             ->with('politician:id,name')
             ->get(['id', 'politician_id', 'category', 'status', 'source_url']);
 
+        $latestRun = AutoVetRun::query()
+            ->where('subject_type', $record->getMorphClass())
+            ->where('subject_id', $record->id)
+            ->latest('id')
+            ->first();
+
         return [
             'record' => $record,
             'related' => $related,
@@ -194,6 +214,8 @@ class PoliticianController extends Controller
             'parties' => Party::query()->orderBy('name')->get(['id', 'name']),
             'topics' => Topic::query()->orderBy('name')->pluck('name'),
             'proposals' => app(ProposalQueue::class)->pendingForRecord($record->id),
+            'autovetEnabled' => app(PluginManager::class)->isEnabled('autovet'),
+            'autovetRun' => $latestRun,
         ];
     }
 
@@ -272,6 +294,10 @@ class PoliticianController extends Controller
                 'mime' => $file->getMimeType() ?: 'application/octet-stream',
                 'size' => $file->getSize() ?: 0,
             ]);
+        }
+
+        if (app(PluginManager::class)->isEnabled('autovet')) {
+            AutoVetJob::dispatch($record->getMorphClass(), $record->id);
         }
 
         return redirect()
@@ -353,6 +379,7 @@ class PoliticianController extends Controller
             'source_url' => 'required|url|max:2048',
             'occurred_on' => 'nullable|date',
             'review_note' => 'required|string|min:40|max:5000',
+            'reliability_level' => ['nullable', 'string', Rule::in(ReliabilityLevel::all())],
             'check_source' => 'nullable|boolean',
             'check_wording' => 'nullable|boolean',
             'check_category' => 'nullable|boolean',
@@ -368,6 +395,7 @@ class PoliticianController extends Controller
             'summary.required_unless' => 'Ringkasan wajib diisi untuk dugaan atau vonis.',
             'quote.required_if' => 'Kutipan wajib diisi untuk pernyataan publik.',
             'party_name.required_if' => 'Ketik nama partai jika memilih lainnya.',
+            'reliability_level.in' => 'Tingkat keandalan tidak valid.',
         ]);
 
         $validator->after(function ($validator) use ($request, $checks) {
@@ -381,6 +409,10 @@ class PoliticianController extends Controller
                 if (! $request->boolean($field)) {
                     $validator->errors()->add($field, $message);
                 }
+            }
+
+            if (! in_array($request->input('reliability_level'), ReliabilityLevel::all(), true)) {
+                $validator->errors()->add('reliability_level', 'Tingkat keandalan wajib dipilih saat menerbitkan.');
             }
         });
 
@@ -405,6 +437,9 @@ class PoliticianController extends Controller
             'check_category' => $request->boolean('check_category'),
             'check_duplicate' => $request->boolean('check_duplicate'),
             'check_legal_label' => $request->boolean('check_legal_label'),
+            'reliability_level' => $validated['decision'] === 'publish'
+                ? ($validated['reliability_level'] ?? null)
+                : ($validated['reliability_level'] ?? $record->reliability_level),
             'status' => $validated['decision'] === 'publish'
                 ? PublicRecord::STATUS_PUBLISHED
                 : PublicRecord::STATUS_REJECTED,

@@ -6,10 +6,12 @@ use App\Inference\HttpReportReader;
 use App\Inference\LayaReportReader;
 use App\Inference\LocalReportReader;
 use App\Inference\ReportReader;
+use App\Plugins\PluginManager;
 use App\Search\Embedder;
 use App\Search\HashingEmbedder;
 use App\Search\HttpEmbedder;
 use App\Search\SearchIndexer;
+use App\Settings\SettingsRepository;
 use Illuminate\Support\ServiceProvider;
 use MarcReichel\Laya\Laya;
 
@@ -22,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->app->singleton(SettingsRepository::class);
+        $this->app->singleton(PluginManager::class);
+
         $this->app->singleton(Embedder::class, function () {
             $dimensions = (int) config('search.embeddings.dimensions');
             $driver = config('search.embeddings.driver');
@@ -76,5 +81,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         SearchIndexer::register();
+        $this->app->make(PluginManager::class)->bootRegistered();
     }
 }

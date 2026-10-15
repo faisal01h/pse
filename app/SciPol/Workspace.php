@@ -238,6 +238,7 @@ class Workspace
                 'summary' => $row->summary,
                 'source_url' => $row->source_url,
                 'source_type' => $row->source_type,
+                'reliability_level' => $row->reliability_level,
                 'occurred_on' => optional($row->occurred_on)->toDateString(),
                 'politician' => [
                     'id' => $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $row->politician->id),
@@ -305,8 +306,9 @@ class Workspace
                     'summary' => $record->summary,
                     'source_url' => $record->source_url,
                     'source_type' => $record->source_type,
+                    'reliability_level' => $record->reliability_level,
                     'date' => optional($date)->toDateString(),
-                    'href' => route('politicians.show', $record->politician_id).'#record-'.$record->id,
+                    'href' => route('records.show', $record),
                     'politician' => [
                         'id' => $this->maskedId->encode(MaskedId::TYPE_POLITICIAN, $record->politician->id),
                         'name' => $record->politician->name,

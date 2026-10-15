@@ -148,7 +148,7 @@ class SubmissionTrackingController extends Controller
             'category' => self::CATEGORY_LABELS[$record->category] ?? $record->category,
             'submitted_at' => $record->created_at?->format('d-m-Y'),
             'reviewed_at' => $record->reviewed_at?->format('d-m-Y'),
-            'href' => $published ? '/politicians/'.$record->politician_id.'#record-'.$record->id : null,
+            'href' => $published ? $record->publicPath() : null,
         ];
     }
 
@@ -262,7 +262,7 @@ class SubmissionTrackingController extends Controller
             'submitted_at' => $dispute->created_at?->format('d-m-Y'),
             'reviewed_at' => $dispute->reviewed_at?->format('d-m-Y'),
             'href' => $recordPublished
-                ? '/politicians/'.$record->politician_id.'#record-'.$record->id
+                ? $record->publicPath()
                 : null,
         ];
     }

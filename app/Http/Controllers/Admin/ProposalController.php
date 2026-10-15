@@ -83,6 +83,7 @@ class ProposalController extends Controller
                 ...$source,
             ]);
             $position->save();
+            $position->basisRecords()->syncWithoutDetaching([$record->id]);
 
             return;
         }

@@ -2,6 +2,7 @@
 
 use App\Catalog\PageMeta;
 use App\Http\Controllers\Admin\AuditController;
+use App\Http\Controllers\Admin\AutoVetModelsController;
 use App\Http\Controllers\Admin\BusinessAdminController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Admin\PartyController;
@@ -9,7 +10,9 @@ use App\Http\Controllers\Admin\PoliticianAdminController;
 use App\Http\Controllers\Admin\ProposalController;
 use App\Http\Controllers\Admin\RelationshipAdminController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserAccessController;
+use App\Http\Controllers\AutoVetController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\BusinessAffiliationController;
 use App\Http\Controllers\BusinessController;
@@ -18,6 +21,8 @@ use App\Http\Controllers\FeedController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PartyProfileController;
 use App\Http\Controllers\PoliticianController;
+use App\Http\Controllers\PublicRecordController;
+use App\Http\Controllers\TopicController;
 use App\Http\Controllers\SciPol\AffiliationController as SciPolAffiliationController;
 use App\Http\Controllers\SciPol\CompareController as SciPolCompareController;
 use App\Http\Controllers\SciPol\ExportController as SciPolExportController;
@@ -74,6 +79,7 @@ Route::middleware('throttle:catalog')->group(function () {
             'canRegister' => false,
             'reports' => $reports['items'] ?? [],
             'meta' => $reports['meta'] ?? PageMeta::empty(),
+            'total' => $reports['total'] ?? 0,
             'party' => $party ? $party->only(['id', 'name', 'logo_url']) : null,
         ]);
     });
@@ -113,6 +119,12 @@ Route::middleware('throttle:catalog')->group(function () {
             'politician' => $politicians->show($politician),
         ]);
     })->name('politicians.show');
+
+    Route::get('/records/{record}', [PublicRecordController::class, 'show'])
+        ->name('records.show');
+
+    Route::get('/topics/{topic}', [TopicController::class, 'show'])
+        ->name('topics.show');
 
     Route::get('/businesses', function (Request $request, BusinessController $businesses) {
         $catalog = $businesses->catalog($request->query('q'));
@@ -224,6 +236,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/reviews/{record}', [PoliticianController::class, 'decide'])->name('reports.decide');
         Route::post('/admin/proposals/{proposal}/accept', [ProposalController::class, 'accept'])->name('admin.proposals.accept');
         Route::post('/admin/proposals/{proposal}/dismiss', [ProposalController::class, 'dismiss'])->name('admin.proposals.dismiss');
+
+        Route::post('/reviews/{record}/autovet', [AutoVetController::class, 'runRecord'])->name('reports.autovet');
+        Route::post('/reviews/affiliations/{affiliation}/autovet', [AutoVetController::class, 'runAffiliation'])->name('affiliations.autovet');
+    });
+
+    Route::middleware('permission:settings.manage')->group(function () {
+        Route::get('/admin/settings', [SettingsController::class, 'edit'])->name('admin.settings.edit');
+        Route::post('/admin/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
+        Route::get('/admin/autovet/models', [AutoVetModelsController::class, 'index'])->name('admin.autovet.models');
     });
 
     Route::get('/admin/audits', [AuditController::class, 'index'])

@@ -105,6 +105,7 @@ export default function Dashboard(props) {
                                     <th>Pengajuan</th>
                                     <th>Jenis</th>
                                     <th>Sumber</th>
+                                    <th>AutoVet</th>
                                     <th>Masuk</th>
                                 </tr>
                             </thead>
@@ -119,6 +120,7 @@ export default function Dashboard(props) {
                                         </td>
                                         <td>{categoryLabel[record.category] ?? record.category}</td>
                                         <td>{record.source_type}</td>
+                                        <td>{record.autovet_draft ? 'Usulan siap' : '—'}</td>
                                         <td className="whitespace-nowrap">{formatDate(record.created_at)}</td>
                                     </tr>
                                 ))}
@@ -135,6 +137,7 @@ export default function Dashboard(props) {
                                         </td>
                                         <td>{affiliationLabel(item)}</td>
                                         <td>{item.source_type}</td>
+                                        <td>{item.autovet_draft ? 'Usulan siap' : '—'}</td>
                                         <td className="whitespace-nowrap">{formatDate(item.created_at)}</td>
                                     </tr>
                                 ))}

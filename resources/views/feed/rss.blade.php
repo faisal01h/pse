@@ -15,7 +15,7 @@
         @php
             $publishedAt = $record->reviewed_at ?? $record->created_at;
             $label = $labels[$record->category] ?? $record->category;
-            $profileUrl = $baseUrl.'/politicians/'.$record->politician_id;
+            $recordUrl = $baseUrl.'/records/'.$record->id;
             $party = $record->politician->party->name ?? null;
             $lines = [];
             if ($party) {
@@ -34,8 +34,8 @@
         @endphp
         <item>
             <title>{{ $record->politician->name }} — {{ $label }}</title>
-            <link>{{ $profileUrl }}</link>
-            <guid isPermaLink="false">{{ $profileUrl }}#record-{{ $record->id }}</guid>
+            <link>{{ $recordUrl }}</link>
+            <guid isPermaLink="true">{{ $recordUrl }}</guid>
             <pubDate>{{ $publishedAt->format('D, d M Y H:i:s O') }}</pubDate>
             <category>{{ $label }}</category>
             <description>{{ implode("\n", $lines) }}</description>

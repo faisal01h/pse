@@ -362,6 +362,8 @@ class RelationshipAdminController extends Controller
             ...$this->sourceColumns($validated, $request),
         ]);
         $position->save();
+        // Manual overwrite replaces the blended sample set; drop prior record basis.
+        $position->basisRecords()->detach();
     }
 
     private function deleteTendency(?int $politicianId, ?int $partyId, string $axis): void

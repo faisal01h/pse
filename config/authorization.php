@@ -25,6 +25,7 @@ return [
         'roles.manage' => 'Mengelola peran',
         'users.view' => 'Melihat pengguna',
         'users.manage' => 'Mengelola akses pengguna',
+        'settings.manage' => 'Mengelola pengaturan sistem',
     ],
 
     'protected_roles' => [

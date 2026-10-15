@@ -53,6 +53,12 @@ const items = [
         href: () => route('admin.users.index'),
         show: (permissions) => permissions.includes('users.view'),
     },
+    {
+        label: 'Pengaturan',
+        match: ['admin.settings.*', 'admin.autovet.*'],
+        href: () => route('admin.settings.edit'),
+        show: (permissions) => permissions.includes('settings.manage'),
+    },
 ];
 
 function isCurrent(match) {

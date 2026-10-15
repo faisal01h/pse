@@ -122,9 +122,19 @@ class ReportInferenceTest extends TestCase
         $position = IdeologyPosition::query()->where('axis', 'ekonomi')->first();
         $this->assertSame(50, $position->score);
         $this->assertSame(2, $position->samples);
+        $this->assertTrue($position->basisRecords()->where('public_records.id', $record->id)->exists());
+
+        $otherRecord = PublicRecord::create([
+            'politician_id' => $subject->id,
+            'category' => PublicRecord::CATEGORY_STATEMENT,
+            'quote' => 'Sari mendorong pasar bebas untuk distribusi pangan nasional.',
+            'source_url' => 'https://example.com/pasar',
+            'source_type' => 'Berita',
+            'status' => PublicRecord::STATUS_PUBLISHED,
+        ]);
 
         $second = RelationshipProposal::create([
-            'public_record_id' => $record->id,
+            'public_record_id' => $otherRecord->id,
             'kind' => RelationshipProposal::KIND_AXIS,
             'fingerprint' => 'axis:ekonomi:second',
             'payload' => ['axis' => 'ekonomi', 'score' => 100],
@@ -137,6 +147,22 @@ class ReportInferenceTest extends TestCase
         $position->refresh();
         $this->assertSame(67, $position->score);
         $this->assertSame(3, $position->samples);
+        $this->assertEqualsCanonicalizing(
+            [$record->id, $otherRecord->id],
+            $position->basisRecords()->pluck('public_records.id')->all()
+        );
+
+        $subject->update(['status' => 1]);
+
+        $this->get(route('politicians.show', $subject))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('politician.tendencies.0.records', 2)
+                ->where('politician.tendencies.0.records', function ($records) use ($record, $otherRecord) {
+                    $ids = collect($records)->pluck('id')->all();
+
+                    return empty(array_diff([$record->id, $otherRecord->id], $ids));
+                }));
 
         $this->actingAs($user)->post(route('admin.politicians.tendencies.store', $subject), [
             'axis' => 'ekonomi',
@@ -149,6 +175,7 @@ class ReportInferenceTest extends TestCase
         $position->refresh();
         $this->assertSame(10, $position->score);
         $this->assertSame(1, $position->samples);
+        $this->assertSame(0, $position->basisRecords()->count());
     }
 
     public function test_the_laya_driver_proposes_from_typed_answers(): void
@@ -301,6 +328,7 @@ class ReportInferenceTest extends TestCase
             'source_type' => 'Berita',
             'source_url' => 'https://example.com/laporan-'.$politician->id,
             'review_note' => 'Sumber terbuka, kutipan sesuai, dan jenis catatan memang pernyataan publik.',
+            'reliability_level' => 'high',
             'check_source' => '1',
             'check_wording' => '1',
             'check_category' => '1',

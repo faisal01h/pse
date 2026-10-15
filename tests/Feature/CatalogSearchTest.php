@@ -108,7 +108,7 @@ class CatalogSearchTest extends TestCase
             ->assertJsonFragment([
                 'type' => 'record',
                 'label' => 'Vonis pengadilan',
-                'href' => '/politicians/'.$politician->id.'#record-'.$record->id,
+                'href' => '/records/'.$record->id,
             ]);
     }
 

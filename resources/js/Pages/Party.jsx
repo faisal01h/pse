@@ -1,52 +1,107 @@
 import { Head, Link } from '@inertiajs/inertia-react';
 import Public from '@/Layouts/Public';
 import PageLinks from '@/Components/PageLinks';
+import ProfileHero, { ProfileCrumb } from '@/Components/ProfileHero';
+import ProfileSection from '@/Components/ProfileSection';
 import RelationshipSections from '@/Components/RelationshipSections';
 
 export default function Party({ party, politicians = [], meta = {}, auth }) {
+    const hasRelations = Boolean(
+        (party.tendencies ?? []).length
+        || (party.connections ?? []).length
+        || (party.issue_stances ?? []).length,
+    );
+
     return (
         <Public auth={auth}>
             <Head title={party.name} />
-            <div className="max-w-[960px] mx-auto px-4 py-8">
-                <p className="mb-4"><Link href="/">Beranda</Link></p>
-                <article className="border-2 border-ink border-t-8 border-t-brand bg-white p-5">
-                    <div className="flex gap-4">
-                        {party.logo_url ? (
-                            <img src={party.logo_url} alt="" className="h-24 w-24 shrink-0 border-2 border-ink object-contain bg-white" />
-                        ) : null}
-                        <div>
-                            <h1 className="text-4xl font-bold leading-tight">{party.name}</h1>
-                            <p className="mt-2"><Link href={`/?party=${party.id}`}>Lihat data yang terbit di beranda</Link></p>
-                        </div>
-                    </div>
-                    <div className="mt-6">
-                        <RelationshipSections
-                            tendencies={party.tendencies}
-                            connections={party.connections}
-                            stances={party.issue_stances}
-                        />
-                    </div>
-                </article>
-                <h2 className="mt-10 text-3xl font-bold">Politisi terbit</h2>
-                {politicians.length > 0 ? (
-                    <ul className="mt-6 grid gap-4 md:grid-cols-2">
-                        {politicians.map((politician) => (
-                            <li key={politician.id} className="border-2 border-ink bg-white">
-                                <Link href={politician.href} className="flex gap-4 p-4 no-underline">
-                                    {politician.photo_url ? (
-                                        <img src={politician.photo_url} alt="" className="h-20 w-20 shrink-0 border-2 border-ink object-cover" />
-                                    ) : null}
-                                    <span>
-                                        <span className="block text-2xl font-bold text-ink underline">{politician.name}</span>
-                                        {politician.position ? <span className="block text-muted no-underline">{politician.position}</span> : null}
-                                        {politician.institution ? <span className="block text-muted no-underline">{politician.institution}</span> : null}
-                                    </span>
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                ) : <p className="mt-6">Belum ada profil terbit dari partai ini.</p>}
-                <PageLinks path={`/parties/${party.id}`} meta={meta} />
+
+            <ProfileHero
+                breadcrumb={(
+                    <ProfileCrumb
+                        items={[
+                            { href: '/', label: 'Beranda' },
+                            { href: '/parties', label: 'Partai' },
+                            { label: party.name },
+                        ]}
+                    />
+                )}
+                image={party.logo_url}
+                imageAlt=""
+                imageContain
+                kicker="Partai politik"
+                title={party.name}
+                meta={[
+                    {
+                        node: politicians.length > 0
+                            ? `${politicians.length} politisi terbit ditampilkan di halaman ini`
+                            : 'Belum ada politisi terbit dari partai ini',
+                        muted: true,
+                    },
+                ]}
+                action={(
+                    <Link href={`/?party=${party.id}`} className="gov-button">
+                        Lihat catatan di beranda
+                    </Link>
+                )}
+            />
+
+            <div className="mx-auto max-w-[960px] px-4 py-10 sm:py-12">
+                <ProfileSection
+                    id="politisi"
+                    title="Politisi terbit"
+                    lead="Profil tokoh yang terafiliasi dengan partai ini dan sudah diterbitkan."
+                >
+                    {politicians.length > 0 ? (
+                        <ul className="divide-y-2 divide-ink border-y-2 border-ink bg-white">
+                            {politicians.map((politician) => (
+                                <li key={politician.id}>
+                                    <Link
+                                        href={politician.href}
+                                        className="group flex gap-4 px-0 py-5 no-underline sm:px-1"
+                                    >
+                                        {politician.photo_url ? (
+                                            <img
+                                                src={politician.photo_url}
+                                                alt=""
+                                                className="h-20 w-20 shrink-0 border-2 border-ink object-cover"
+                                            />
+                                        ) : (
+                                            <span
+                                                className="flex h-20 w-20 shrink-0 items-end border-2 border-ink bg-canvas p-2 text-2xl font-bold text-brand"
+                                                aria-hidden="true"
+                                            >
+                                                {politician.name.charAt(0)}
+                                            </span>
+                                        )}
+                                        <span className="min-w-0 self-center">
+                                            <span className="block text-2xl font-bold text-ink underline decoration-transparent transition group-hover:decoration-brand">
+                                                {politician.name}
+                                            </span>
+                                            {politician.position ? (
+                                                <span className="mt-1 block text-muted no-underline">{politician.position}</span>
+                                            ) : null}
+                                            {politician.institution ? (
+                                                <span className="block text-muted no-underline">{politician.institution}</span>
+                                            ) : null}
+                                        </span>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p>Belum ada profil terbit dari partai ini.</p>
+                    )}
+                    <PageLinks path={`/parties/${party.id}`} meta={meta} />
+                </ProfileSection>
+
+                {hasRelations ? (
+                    <RelationshipSections
+                        tendencies={party.tendencies}
+                        connections={party.connections}
+                        stances={party.issue_stances}
+                    />
+                ) : null}
             </div>
         </Public>
     );

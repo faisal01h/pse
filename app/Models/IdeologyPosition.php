@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\RecordsChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class IdeologyPosition extends Model
 {
@@ -74,6 +75,13 @@ class IdeologyPosition extends Model
     public function party(): BelongsTo
     {
         return $this->belongsTo(Party::class);
+    }
+
+    public function basisRecords(): BelongsToMany
+    {
+        return $this->belongsToMany(PublicRecord::class, 'ideology_position_public_record')
+            ->withTimestamps()
+            ->orderByDesc('public_records.id');
     }
 
     public static function axisKeys(): array

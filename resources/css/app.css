@@ -36,10 +36,26 @@
     main a.row-link:hover,
     main a.chip,
     main a.chip:hover,
+    main a.record-body-link,
+    main a.record-body-link:hover,
+    main a.topic-badge,
+    main a.topic-badge:hover,
     header a.admin-bar-link,
     header a.admin-bar-link:hover {
         color: #0b0c0c;
         text-decoration: none;
+    }
+
+    main a.record-body-link:hover {
+        text-decoration: underline;
+    }
+
+    main a.topic-badge {
+        color: #505a5f;
+    }
+
+    main a.topic-badge:hover {
+        color: #0b0c0c;
     }
 
     main a.chip-selected,
@@ -87,6 +103,118 @@
 
 .step-in {
     animation: step-in 180ms ease-out;
+}
+
+@keyframes profile-rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes profile-fade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.profile-rise {
+    animation: profile-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.profile-fade {
+    animation: profile-fade 320ms ease-out both;
+}
+
+.profile-section {
+    animation: profile-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.profile-hero {
+    background-image:
+        linear-gradient(180deg, #f3f2f1 0%, #ffffff 100%),
+        repeating-linear-gradient(
+            -12deg,
+            transparent,
+            transparent 11px,
+            rgba(11, 12, 12, 0.03) 11px,
+            rgba(11, 12, 12, 0.03) 12px
+        );
+    background-blend-mode: normal;
+}
+
+.spectrum-fill {
+    transform-origin: left center;
+    animation: spectrum-fill 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.spectrum-marker {
+    animation: spectrum-pop 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes spectrum-fill {
+    from {
+        transform: scaleX(0);
+    }
+
+    to {
+        transform: scaleX(1);
+    }
+}
+
+@keyframes spectrum-pop {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.4);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.review-hero {
+    animation: profile-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.feed-section {
+    background-image:
+        linear-gradient(180deg, #f3f2f1 0%, #ffffff 72%),
+        repeating-linear-gradient(
+            -12deg,
+            transparent,
+            transparent 11px,
+            rgba(11, 12, 12, 0.03) 11px,
+            rgba(11, 12, 12, 0.03) 12px
+        );
+}
+
+.feed-record {
+    animation: profile-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-rise,
+    .profile-fade,
+    .profile-section,
+    .feed-record {
+        animation: none;
+    }
+
+    .spectrum-fill,
+    .spectrum-marker {
+        animation: none;
+    }
 }
 
 .page-body > :first-child {

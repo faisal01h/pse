@@ -2,6 +2,8 @@ import Authenticated from '@/Layouts/Authenticated';
 import PartyField from '@/Components/PartyField';
 import BusinessField from '@/Components/BusinessField';
 import RecordMedia from '@/Components/RecordMedia';
+import ReliabilityField from '@/Components/ReliabilityField';
+import AutoVetPanel from '@/Components/AutoVetPanel';
 import ValidationErrors from '@/Components/ValidationErrors';
 import { Head, Link, useForm } from '@inertiajs/inertia-react';
 
@@ -71,6 +73,8 @@ export default function AffiliationReview({
     parties = [],
     businesses = [],
     types = [],
+    autovetEnabled = false,
+    autovetRun = null,
 }) {
     const politician = affiliation.politician;
     const unknown = affiliation.type === 'ownership' && affiliation.ownership_percent == null;
@@ -96,7 +100,22 @@ export default function AffiliationReview({
         check_category: Boolean(affiliation.check_category),
         check_duplicate: Boolean(affiliation.check_duplicate),
         check_legal_label: Boolean(affiliation.check_legal_label),
+        reliability_level: affiliation.reliability_level ?? '',
     });
+
+    function applyAutoVetDraft(draft) {
+        setData((current) => ({
+            ...current,
+            decision: draft.decision === 'reject' ? 'reject' : 'publish',
+            review_note: draft.review_note || current.review_note,
+            reliability_level: draft.reliability_level || current.reliability_level,
+            check_source: Boolean(draft.check_source),
+            check_wording: Boolean(draft.check_wording),
+            check_category: Boolean(draft.check_category),
+            check_duplicate: Boolean(draft.check_duplicate),
+            check_legal_label: Boolean(draft.check_legal_label),
+        }));
+    }
 
     const onCheck = (event) => {
         setData(event.target.name, event.target.checked);
@@ -187,6 +206,14 @@ export default function AffiliationReview({
                         </div>
                     </div>
                 </section>
+
+                <AutoVetPanel
+                    enabled={autovetEnabled}
+                    run={autovetRun}
+                    draft={affiliation.autovet_draft}
+                    runHref={route('affiliations.autovet', affiliation.id)}
+                    onApplyDraft={applyAutoVetDraft}
+                />
 
                 <form onSubmit={submit}>
                     <ValidationErrors errors={errors} />
@@ -290,6 +317,12 @@ export default function AffiliationReview({
                             </li>
                         ))}
                     </ul>
+
+                    <ReliabilityField
+                        value={data.reliability_level}
+                        onChange={(next) => setData('reliability_level', next)}
+                        required={data.decision === 'publish'}
+                    />
 
                     <div className="mt-6">
                         <label htmlFor="review_note" className="block font-bold mb-1">Catatan pemeriksa</label>

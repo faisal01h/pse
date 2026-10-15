@@ -358,7 +358,7 @@ class SearchIndexer
             'title' => mb_substr($title !== '' ? $title : $label, 0, 240),
             'subtitle' => implode(' · ', array_filter([$politician->name, $date, $record->source_type])),
             'body' => $body,
-            'href' => '/politicians/'.$politician->id.'#record-'.$record->id,
+            'href' => $record->publicPath(),
             'image_url' => null,
         ]);
     }

@@ -51,6 +51,8 @@ class BusinessAffiliation extends Model
         'check_category',
         'check_duplicate',
         'check_legal_label',
+        'reliability_level',
+        'autovet_draft',
         'tracking_code_hash',
         'user_id',
     ];
@@ -70,6 +72,7 @@ class BusinessAffiliation extends Model
         'check_legal_label' => 'boolean',
         'dispute_retract_pending' => 'boolean',
         'dispute_threshold' => 'integer',
+        'autovet_draft' => 'array',
     ];
 
     public function politician(): BelongsTo

@@ -48,6 +48,8 @@ class PublicRecord extends Model
         'check_category',
         'check_duplicate',
         'check_legal_label',
+        'reliability_level',
+        'autovet_draft',
         'tracking_code_hash',
     ];
 
@@ -63,7 +65,18 @@ class PublicRecord extends Model
         'check_category' => 'boolean',
         'check_duplicate' => 'boolean',
         'check_legal_label' => 'boolean',
+        'autovet_draft' => 'array',
     ];
+
+    public function publicUrl(): string
+    {
+        return route('records.show', $this);
+    }
+
+    public function publicPath(): string
+    {
+        return '/records/'.$this->id;
+    }
 
     public function politician(): BelongsTo
     {

@@ -212,19 +212,23 @@ export default function Bandingkan({ type = 'politician', ids = [], subjects = [
                                     {(subject.tendencies || []).length === 0 ? (
                                         <p className="text-sm text-muted">No axes yet.</p>
                                     ) : (
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             {subject.tendencies.map((item) => (
                                                 <div key={item.axis}>
                                                     <Spectrum
+                                                        compact
                                                         label={item.axis_label}
                                                         left={item.left}
                                                         right={item.right}
                                                         score={item.score}
                                                         scoreSuffix="of 100"
+                                                        records={item.records}
+                                                        basisLabel="Basis records"
+                                                        basisCountLabel="records"
                                                     />
                                                     <p className="mt-1 text-[12px] text-muted">
                                                         samples={item.samples}
-                                                        {item.source_url ? (
+                                                        {(item.records?.length ?? 0) === 0 && item.source_url ? (
                                                             <>
                                                                 {' · '}
                                                                 <a href={item.source_url} target="_blank" rel="noreferrer">source</a>
@@ -288,6 +292,7 @@ export default function Bandingkan({ type = 'politician', ids = [], subjects = [
                                     <SciPolTh>Type</SciPolTh>
                                     <SciPolTh>Business</SciPolTh>
                                     <SciPolTh>%</SciPolTh>
+                                    <SciPolTh>Reliability</SciPolTh>
                                     <SciPolTh>Source</SciPolTh>
                                 </tr>
                             </thead>
@@ -297,7 +302,7 @@ export default function Bandingkan({ type = 'politician', ids = [], subjects = [
                                         ? [(
                                             <tr key={`${subject.id}-aff-empty`}>
                                                 <SciPolTd>{subject.name}</SciPolTd>
-                                                <SciPolTd colSpan={4} className="text-muted">No published affiliations</SciPolTd>
+                                                <SciPolTd colSpan={5} className="text-muted">No published affiliations</SciPolTd>
                                             </tr>
                                         )]
                                         : subject.business_affiliations.map((row, index) => (
@@ -308,6 +313,7 @@ export default function Bandingkan({ type = 'politician', ids = [], subjects = [
                                                     <a href={row.business?.href}>{row.business?.name}</a>
                                                 </SciPolTd>
                                                 <SciPolTd>{row.ownership_percent ?? '—'}</SciPolTd>
+                                                <SciPolTd>{row.reliability_level || '—'}</SciPolTd>
                                                 <SciPolTd>
                                                     {row.source_url ? (
                                                         <a href={row.source_url} target="_blank" rel="noreferrer">

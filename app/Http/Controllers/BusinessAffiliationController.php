@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Catalog\ReliabilityLevel;
 use App\Models\Business;
 use App\Models\BusinessAffiliation;
 use App\Models\Party;
 use App\Models\Politician;
+use App\Plugins\AutoVet\Jobs\AutoVetJob;
+use App\Plugins\AutoVet\Models\AutoVetRun;
+use App\Plugins\PluginManager;
 use App\Security\Turnstile;
 use App\Tracking\SubmissionCode;
 use Illuminate\Http\Request;
@@ -99,6 +103,10 @@ class BusinessAffiliationController extends Controller
             ]);
         }
 
+        if (app(PluginManager::class)->isEnabled('autovet')) {
+            AutoVetJob::dispatch($affiliation->getMorphClass(), $affiliation->id);
+        }
+
         return redirect()
             ->route('reports.receipt')
             ->with('submission_code', $code);
@@ -148,6 +156,12 @@ class BusinessAffiliationController extends Controller
             ->where('id', '!=', $affiliation->id)
             ->exists();
 
+        $latestRun = AutoVetRun::query()
+            ->where('subject_type', $affiliation->getMorphClass())
+            ->where('subject_id', $affiliation->id)
+            ->latest('id')
+            ->first();
+
         return [
             'affiliation' => $affiliation,
             'related' => $related,
@@ -156,6 +170,8 @@ class BusinessAffiliationController extends Controller
             'parties' => Party::query()->orderBy('name')->get(['id', 'name']),
             'businesses' => Business::query()->orderBy('name')->get(['id', 'name']),
             'types' => BusinessAffiliation::formTypes(),
+            'autovetEnabled' => app(PluginManager::class)->isEnabled('autovet'),
+            'autovetRun' => $latestRun,
         ];
     }
 
@@ -186,6 +202,7 @@ class BusinessAffiliationController extends Controller
             'source_url' => 'required|url|max:2048',
             'occurred_on' => 'nullable|date',
             'review_note' => 'required|string|min:40|max:5000',
+            'reliability_level' => ['nullable', 'string', Rule::in(ReliabilityLevel::all())],
             'check_source' => 'nullable|boolean',
             'check_wording' => 'nullable|boolean',
             'check_category' => 'nullable|boolean',
@@ -196,6 +213,7 @@ class BusinessAffiliationController extends Controller
             'review_note.min' => 'Catatan pemeriksa minimal 40 karakter.',
             'party_name.required_if' => 'Ketik nama partai jika memilih lainnya.',
             'business_name.required_if' => 'Ketik nama bisnis jika memilih lainnya.',
+            'reliability_level.in' => 'Tingkat keandalan tidak valid.',
         ]);
 
         $validator->after(function ($validator) use ($request, $checks, $affiliation) {
@@ -211,6 +229,10 @@ class BusinessAffiliationController extends Controller
                 if (! $request->boolean($field)) {
                     $validator->errors()->add($field, $message);
                 }
+            }
+
+            if (! in_array($request->input('reliability_level'), ReliabilityLevel::all(), true)) {
+                $validator->errors()->add('reliability_level', 'Tingkat keandalan wajib dipilih saat menerbitkan.');
             }
 
             $businessId = $this->resolveBusinessIdForDuplicateCheck($request);
@@ -257,6 +279,9 @@ class BusinessAffiliationController extends Controller
             'check_category' => $request->boolean('check_category'),
             'check_duplicate' => $request->boolean('check_duplicate'),
             'check_legal_label' => $request->boolean('check_legal_label'),
+            'reliability_level' => $published
+                ? ($validated['reliability_level'] ?? null)
+                : ($validated['reliability_level'] ?? $affiliation->reliability_level),
             'status' => $published
                 ? BusinessAffiliation::STATUS_PUBLISHED
                 : BusinessAffiliation::STATUS_REJECTED,
