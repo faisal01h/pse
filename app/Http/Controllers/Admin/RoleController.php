@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Authorization\AccessGuard;
+use App\Authorization\PermissionCatalog;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,6 +55,7 @@ class RoleController extends Controller
 
         $validated = $this->validateRole($request);
         $permissions = $validated['permissions'] ?? [];
+        PermissionCatalog::ensureRegistered();
 
         $role = Role::create([
             'name' => $validated['name'],
@@ -89,6 +91,7 @@ class RoleController extends Controller
         $validated = $this->validateRole($request, $role);
         $permissions = $validated['permissions'] ?? [];
         AccessGuard::assertAdminRoleKeepsManagePermissions($role, $permissions);
+        PermissionCatalog::ensureRegistered();
 
         if (! in_array($role->name, config('authorization.protected_roles', []), true)) {
             $role->name = $validated['name'];

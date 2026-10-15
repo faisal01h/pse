@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Authorization\AccessGuard;
+use App\Authorization\PermissionCatalog;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -81,6 +82,7 @@ class UserAccessController extends Controller
         $isActive = (bool) $validated['is_active'];
 
         AccessGuard::assertNotStrandingLastManager($user, $isActive, $roles, $permissions);
+        PermissionCatalog::ensureRegistered();
 
         $user->is_active = $isActive;
         $user->save();
