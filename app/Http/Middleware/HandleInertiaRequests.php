@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Web\WebFeatures;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
@@ -34,6 +35,8 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        $features = app(WebFeatures::class);
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $user,
@@ -47,8 +50,11 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
             ],
+            'features' => $features->toArray(),
+            'site_notice' => $features->siteNotice(),
             'turnstile' => [
                 'sitekey' => config('turnstile.sitekey'),
+                'enabled' => $features->turnstileEnabled(),
             ],
             'ziggy' => function () use ($request) {
                 return array_merge((new Ziggy)->toArray(), [

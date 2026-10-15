@@ -128,6 +128,24 @@ class PublicRecord extends Model
         }
     }
 
+    /**
+     * @param  array<int, string>  $names
+     */
+    public function addTopics(array $names): void
+    {
+        foreach ($names as $name) {
+            $trimmed = trim((string) $name);
+            if ($trimmed === '') {
+                continue;
+            }
+
+            $topic = Topic::findOrCreateByName($trimmed);
+            if (! $this->recordTopics()->where('topic_id', $topic->id)->exists()) {
+                $this->recordTopics()->create(['topic_id' => $topic->id]);
+            }
+        }
+    }
+
     public function proposals(): HasMany
     {
         return $this->hasMany(RelationshipProposal::class);

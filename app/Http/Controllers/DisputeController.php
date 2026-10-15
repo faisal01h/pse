@@ -105,7 +105,7 @@ class DisputeController extends Controller
             'reason' => 'required|string|min:40|max:5000',
             'source_url' => ['required', 'string', 'max:2048', 'regex:/^https:\/\/\S+$/i'],
             'source_type' => 'required|string|max:100',
-            'cf-turnstile-response' => 'required|string|max:2048',
+            'cf-turnstile-response' => app(Turnstile::class)->responseRule(),
         ], [
             'target.required' => 'Pilih jenis sanggahan.',
             'public_record_id.required_if' => 'Pilih arsip yang terbit.',

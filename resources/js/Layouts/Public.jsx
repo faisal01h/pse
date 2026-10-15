@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from '@inertiajs/inertia-react';
+import { Link, usePage } from '@inertiajs/inertia-react';
 import AdminNav from '@/Components/AdminNav';
 import CommandSearch from '@/Components/CommandSearch';
 import Toast from '@/Components/Toast';
@@ -24,6 +24,7 @@ function MenuLink({ href, method, children }) {
 
 export default function Public({ children, auth }) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const { features = {}, site_notice: siteNotice = '' } = usePage().props;
 
     useEffect(() => {
         const close = () => setMenuOpen(false);
@@ -36,11 +37,20 @@ export default function Public({ children, auth }) {
         { href: '/politicians', label: 'Politisi' },
         { href: '/parties', label: 'Partai' },
         { href: '/businesses', label: 'Bisnis' },
-        { href: '/scipol', label: 'SciPol' },
-        { href: '/reports', label: 'Buat pengajuan' },
-        { href: '/reports/track', label: 'Lacak pengajuan' },
-        { href: '/dispute', label: 'Dispute' },
     ];
+
+    if (features.scipol !== false) {
+        links.push({ href: '/scipol', label: 'SciPol' });
+    }
+    if (features.submissions !== false) {
+        links.push({ href: '/reports', label: 'Buat pengajuan' });
+    }
+    if (features.tracking !== false) {
+        links.push({ href: '/reports/track', label: 'Lacak pengajuan' });
+    }
+    if (features.disputes !== false) {
+        links.push({ href: '/dispute', label: 'Dispute' });
+    }
 
     if (auth?.user) {
         links.push({ href: route('logout'), label: 'Keluar', method: 'post' });
@@ -91,6 +101,11 @@ export default function Public({ children, auth }) {
                                 ))}
                             </ul>
                         </nav>
+                    </div>
+                ) : null}
+                {siteNotice ? (
+                    <div className="border-b-2 border-ink bg-canvas">
+                        <p className="mx-auto max-w-[960px] px-4 py-3 font-bold">{siteNotice}</p>
                     </div>
                 ) : null}
             </header>

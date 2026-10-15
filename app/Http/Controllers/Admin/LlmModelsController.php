@@ -3,20 +3,26 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Plugins\Llm\LlmService;
 use App\Settings\SettingsRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
-class AutoVetModelsController extends Controller
+class LlmModelsController extends Controller
 {
-    public function __construct(private SettingsRepository $settings) {}
+    public function __construct(
+        private SettingsRepository $settings,
+        private LlmService $llm,
+    ) {}
 
     public function index(): JsonResponse
     {
-        $baseUrl = rtrim($this->settings->getString('autovet.llm.base_url'), '/');
-        $apiKey = $this->settings->getDecrypted('autovet.llm.api_key');
+        $this->llm->migrateLegacySettings();
+
+        $baseUrl = rtrim($this->settings->getString('llm.base_url'), '/');
+        $apiKey = $this->settings->getDecrypted('llm.api_key');
 
         if ($baseUrl === '' || $apiKey === '') {
             return response()->json([
@@ -25,7 +31,7 @@ class AutoVetModelsController extends Controller
             ], 422);
         }
 
-        $cacheKey = 'autovet.models.'.md5($baseUrl);
+        $cacheKey = 'llm.models.'.md5($baseUrl);
 
         try {
             $models = Cache::remember($cacheKey, 60, function () use ($baseUrl, $apiKey) {

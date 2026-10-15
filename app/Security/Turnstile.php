@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Web\WebFeatures;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -9,8 +10,22 @@ use Illuminate\Validation\Validator;
 
 class Turnstile
 {
+    public function enabled(): bool
+    {
+        return app(WebFeatures::class)->turnstileEnabled();
+    }
+
+    public function responseRule(): string
+    {
+        return $this->enabled() ? 'required|string|max:2048' : 'nullable|string|max:2048';
+    }
+
     public function assert(Request $request, Validator $validator, string $action): void
     {
+        if (! $this->enabled()) {
+            return;
+        }
+
         $token = (string) $request->input('cf-turnstile-response', '');
         $secret = (string) config('turnstile.secret');
         $hostnames = config('turnstile.hostnames', []);

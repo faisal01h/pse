@@ -239,7 +239,7 @@ class PoliticianController extends Controller
             'evtype' => 'required|string|max:100',
             'link' => 'required|url|max:2048',
             'occurred_on' => 'nullable|date',
-            'cf-turnstile-response' => 'required|string|max:2048',
+            'cf-turnstile-response' => app(Turnstile::class)->responseRule(),
             'media' => 'nullable|array|max:3',
             'media.*' => 'file|max:2048|mimetypes:image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,application/pdf',
         ], [

@@ -86,6 +86,7 @@ export default function Pengajuan(props) {
     const parties = props.parties ?? [];
     const businesses = props.businesses ?? [];
     const sitekey = props.turnstile?.sitekey ?? '';
+    const turnstileEnabled = props.turnstile?.enabled !== false;
     const [kind, setKind] = useState(null);
     const [step, setStep] = useState(0);
     const [stepError, setStepError] = useState('');
@@ -213,7 +214,7 @@ export default function Pengajuan(props) {
             if (index === 5 && !/^https?:\/\/\S+$/i.test(data.link.trim())) {
                 return 'Tautan sumber harus diawali http:// atau https://.';
             }
-            if (index === 6 && !data['cf-turnstile-response']) {
+            if (index === 6 && turnstileEnabled && !data['cf-turnstile-response']) {
                 return 'Selesaikan verifikasi keamanan terlebih dahulu.';
             }
             return '';
@@ -231,7 +232,7 @@ export default function Pengajuan(props) {
         if (index === 4 && !/^https?:\/\/\S+$/i.test(data.link.trim())) {
             return 'Tautan sumber harus diawali http:// atau https://.';
         }
-        if (index === 5 && !data['cf-turnstile-response']) {
+        if (index === 5 && turnstileEnabled && !data['cf-turnstile-response']) {
             return 'Selesaikan verifikasi keamanan terlebih dahulu.';
         }
         return '';
@@ -544,15 +545,17 @@ export default function Pengajuan(props) {
                                         </div>
                                     ))}
                                 </dl>
-                                <div className="mt-6">
-                                    <p className="font-bold mb-2">Verifikasi keamanan</p>
-                                    <TurnstileField
-                                        sitekey={sitekey}
-                                        action={isAffiliation ? 'affiliation' : 'report'}
-                                        resetKey={turnstileReset}
-                                        onToken={(token) => setData('cf-turnstile-response', token)}
-                                    />
-                                </div>
+                                {turnstileEnabled ? (
+                                    <div className="mt-6">
+                                        <p className="font-bold mb-2">Verifikasi keamanan</p>
+                                        <TurnstileField
+                                            sitekey={sitekey}
+                                            action={isAffiliation ? 'affiliation' : 'report'}
+                                            resetKey={turnstileReset}
+                                            onToken={(token) => setData('cf-turnstile-response', token)}
+                                        />
+                                    </div>
+                                ) : null}
                             </div>
                         ) : null}
                     </div>

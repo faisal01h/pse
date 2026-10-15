@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Plugins\AutoVet\Llm;
+namespace App\Plugins\Llm;
 
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-class OpenAiCompatibleClient
+class OpenAiCompatibleClient implements LlmClient
 {
     public function __construct(
         private string $baseUrl,
@@ -14,11 +14,6 @@ class OpenAiCompatibleClient
         private int $timeout = 60,
     ) {}
 
-    /**
-     * @param  list<array<string, mixed>>  $messages
-     * @param  list<array<string, mixed>>  $tools
-     * @return array<string, mixed>
-     */
     public function chat(array $messages, array $tools = []): array
     {
         $payload = [

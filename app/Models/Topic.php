@@ -10,6 +10,10 @@ class Topic extends Model
 {
     use RecordsChanges;
 
+    public const AI_CHECKED = 'AI Checked';
+
+    public const AUTO_ADDED = 'Auto-added';
+
     protected $fillable = [
         'name',
     ];

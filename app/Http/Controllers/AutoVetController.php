@@ -4,16 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\BusinessAffiliation;
 use App\Models\PublicRecord;
+use App\Plugins\AutoVet\AutoVetService;
 use App\Plugins\AutoVet\Jobs\AutoVetJob;
 use App\Plugins\PluginManager;
-use App\Settings\SettingsRepository;
 use Illuminate\Http\Request;
 
 class AutoVetController extends Controller
 {
     public function __construct(
         private PluginManager $plugins,
-        private SettingsRepository $settings,
+        private AutoVetService $autoVet,
     ) {}
 
     public function runRecord(Request $request, PublicRecord $record)
@@ -29,13 +29,17 @@ class AutoVetController extends Controller
     private function dispatchRun(PublicRecord|BusinessAffiliation $subject)
     {
         if (! $this->plugins->isEnabled('autovet')) {
-            return back()->withErrors(['autovet' => 'AutoVet belum diaktifkan.']);
+            return back()->withErrors([
+                'autovet' => 'AutoVet belum diaktifkan atau strategi pemeriksaannya belum siap.',
+            ]);
         }
 
-        if ($this->settings->getString('autovet.llm.base_url') === ''
-            || ! $this->settings->hasSecret('autovet.llm.api_key')
-            || $this->settings->getString('autovet.llm.model') === '') {
-            return back()->withErrors(['autovet' => 'Konfigurasi LLM AutoVet belum lengkap.']);
+        if (! $this->autoVet->isConfigured()) {
+            $message = $this->autoVet->strategy() === AutoVetService::STRATEGY_LAYA
+                ? 'Konfigurasi Laya belum lengkap (LAYA_URL).'
+                : 'Konfigurasi LLM belum lengkap.';
+
+            return back()->withErrors(['autovet' => $message]);
         }
 
         AutoVetJob::dispatch($subject->getMorphClass(), $subject->id);

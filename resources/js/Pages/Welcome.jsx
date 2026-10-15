@@ -1,9 +1,11 @@
-import { Link, Head } from '@inertiajs/inertia-react';
+import { Link, Head, usePage } from '@inertiajs/inertia-react';
 import Public from '@/Layouts/Public';
 import FeedRecord from '@/Components/FeedRecord';
 import useInfiniteReports from '@/hooks/useInfiniteReports';
 
 export default function Welcome(props) {
+    const { features = {} } = usePage().props;
+    const submissionsEnabled = features.submissions !== false;
     const {
         reports,
         total,
@@ -25,7 +27,9 @@ export default function Welcome(props) {
             <div className="mx-auto max-w-[960px] px-4 pt-8">
                 <h1 className="text-4xl font-bold leading-tight md:text-5xl">PolitiSEE</h1>
                 <p className="mt-3 max-w-2xl text-xl">Arsip publik tokoh publik, pejabat dan politisi.</p>
-                <Link href="/reports" className="gov-button mt-6">Buat pengajuan</Link>
+                {submissionsEnabled ? (
+                    <Link href="/reports" className="gov-button mt-6">Buat pengajuan</Link>
+                ) : null}
             </div>
 
             <section className="feed-section mt-10 border-t-2 border-ink">
@@ -74,9 +78,11 @@ export default function Welcome(props) {
                         <div className="mt-6 border-2 border-dashed border-ink/30 bg-white px-4 py-10 text-center">
                             <p className="text-lg font-bold">Belum ada data yang terbit.</p>
                             <p className="mt-2 text-muted">Pengajuan yang lolos pemeriksaan akan muncul di sini.</p>
-                            <Link href="/reports" className="gov-button mt-5">
-                                Buat pengajuan
-                            </Link>
+                            {submissionsEnabled ? (
+                                <Link href="/reports" className="gov-button mt-5">
+                                    Buat pengajuan
+                                </Link>
+                            ) : null}
                         </div>
                     )}
 

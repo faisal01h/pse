@@ -2,19 +2,16 @@
 
 namespace App\Plugins\AutoVet;
 
-use App\Plugins\AutoVet\Llm\OpenAiCompatibleClient;
 use App\Plugins\AutoVet\Tools\ToolContext;
 use App\Plugins\AutoVet\Tools\ToolRegistry;
+use App\Plugins\Llm\AgentRunner;
 use RuntimeException;
-use Throwable;
 
 class Orchestrator
 {
     public function __construct(
-        private OpenAiCompatibleClient $client,
+        private AgentRunner $runner,
         private ToolRegistry $tools,
-        private int $maxSteps = 12,
-        private int $maxDepth = 1,
     ) {}
 
     /**
@@ -23,127 +20,27 @@ class Orchestrator
      */
     public function run(array $submission, ToolContext $context): array
     {
-        return $this->loop($submission, $context, $this->systemPrompt(), $this->maxSteps);
-    }
+        $outcome = $this->runner->run(
+            $this->systemPrompt(),
+            $this->userPrompt($submission),
+            fn (bool $allowSpawn) => $this->tools->definitions($allowSpawn),
+            function (string $name, array $args, int $depth) use ($context) {
+                $scoped = $context->withDepth($depth);
 
-    /**
-     * @param  array<string, mixed>  $submission
-     * @return array{result: VetResult, steps: int, tokens: int}
-     */
-    private function loop(array $submission, ToolContext $context, string $system, int $budget, string $extraTask = ''): array
-    {
-        $messages = [
-            ['role' => 'system', 'content' => $system],
-            ['role' => 'user', 'content' => $this->userPrompt($submission, $extraTask)],
-        ];
+                return $this->tools->execute($name, $args, $scoped);
+            },
+            fn (string $task) => $this->subagentPrompt($task),
+        );
 
-        $trace = [];
-        $steps = 0;
-        $tokens = 0;
-        $allowSpawn = $context->depth < $this->maxDepth;
-
-        for ($i = 0; $i < $budget; $i++) {
-            $steps++;
-            $response = $this->client->chat($messages, $this->tools->definitions($allowSpawn));
-            $tokens += (int) ($response['usage']['total_tokens'] ?? 0);
-
-            $choice = $response['choices'][0]['message'] ?? null;
-            if (! is_array($choice)) {
-                throw new RuntimeException('LLM returned no message.');
-            }
-
-            $toolCalls = $choice['tool_calls'] ?? [];
-            if (! is_array($toolCalls) || $toolCalls === []) {
-                $content = (string) ($choice['content'] ?? '');
-                $decoded = json_decode($content, true);
-                if (is_array($decoded)) {
-                    return [
-                        'result' => VetResult::fromArray($decoded, $trace),
-                        'steps' => $steps,
-                        'tokens' => $tokens,
-                    ];
-                }
-
-                $messages[] = $choice;
-                $messages[] = [
-                    'role' => 'user',
-                    'content' => 'Continue by calling submit_vet_result with your final structured decision.',
-                ];
-
-                continue;
-            }
-
-            $messages[] = $choice;
-
-            foreach ($toolCalls as $call) {
-                $id = (string) ($call['id'] ?? uniqid('tool_', true));
-                $name = (string) ($call['function']['name'] ?? '');
-                $rawArgs = (string) ($call['function']['arguments'] ?? '{}');
-                $args = json_decode($rawArgs, true);
-                if (! is_array($args)) {
-                    $args = [];
-                }
-
-                $executed = $this->tools->execute($name, $args, $context);
-                $trace[] = ['tool' => $name, 'ok' => $executed['ok'] ?? false];
-
-                if (isset($executed['final']) && is_array($executed['final'])) {
-                    return [
-                        'result' => VetResult::fromArray($executed['final'], $trace),
-                        'steps' => $steps,
-                        'tokens' => $tokens,
-                    ];
-                }
-
-                if (isset($executed['spawn']) && is_string($executed['spawn']) && $executed['spawn'] !== '') {
-                    if (! $allowSpawn) {
-                        $messages[] = [
-                            'role' => 'tool',
-                            'tool_call_id' => $id,
-                            'content' => 'Subagent spawn refused: max depth reached.',
-                        ];
-
-                        continue;
-                    }
-
-                    try {
-                        $child = $this->loop(
-                            $submission,
-                            $context->withDepth($context->depth + 1),
-                            $this->subagentPrompt($executed['spawn']),
-                            max(2, (int) floor($budget / 2)),
-                            $executed['spawn'],
-                        );
-                        $steps += $child['steps'];
-                        $tokens += $child['tokens'];
-                        $summary = 'Subagent finished. Decision hint: '.$child['result']->decision
-                            .' confidence='.$child['result']->confidence
-                            .' rationale='.$child['result']->rationale;
-                        $messages[] = [
-                            'role' => 'tool',
-                            'tool_call_id' => $id,
-                            'content' => $summary,
-                        ];
-                    } catch (Throwable $e) {
-                        $messages[] = [
-                            'role' => 'tool',
-                            'tool_call_id' => $id,
-                            'content' => 'Subagent failed: '.$e->getMessage(),
-                        ];
-                    }
-
-                    continue;
-                }
-
-                $messages[] = [
-                    'role' => 'tool',
-                    'tool_call_id' => $id,
-                    'content' => (string) ($executed['content'] ?? ''),
-                ];
-            }
+        if (! is_array($outcome['result'])) {
+            throw new RuntimeException('AutoVet finished without a structured result.');
         }
 
-        throw new RuntimeException('AutoVet exceeded max steps without a final result.');
+        return [
+            'result' => VetResult::fromArray($outcome['result'], $outcome['trace']),
+            'steps' => $outcome['steps'],
+            'tokens' => $outcome['tokens'],
+        ];
     }
 
     private function systemPrompt(): string
@@ -166,7 +63,7 @@ PROMPT;
     private function subagentPrompt(string $task): string
     {
         return "You are an AutoVet subagent. Focus only on this task: {$task}\n"
-            ."Use tools as needed, then call submit_vet_result with your best structured answer.";
+            .'Use tools as needed, then call submit_vet_result with your best structured answer.';
     }
 
     /**

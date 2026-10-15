@@ -55,8 +55,8 @@ const items = [
     },
     {
         label: 'Pengaturan',
-        match: ['admin.settings.*', 'admin.autovet.*'],
-        href: () => route('admin.settings.edit'),
+        match: ['admin.settings.*', 'admin.llm.*', 'admin.autovet.*', 'admin.newsradar.*'],
+        href: () => route('admin.settings.web'),
         show: (permissions) => permissions.includes('settings.manage'),
     },
 ];

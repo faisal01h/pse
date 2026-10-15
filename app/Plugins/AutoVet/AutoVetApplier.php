@@ -8,6 +8,7 @@ use App\Models\Business;
 use App\Models\BusinessAffiliation;
 use App\Models\Politician;
 use App\Models\PublicRecord;
+use App\Models\Topic;
 use App\Settings\SettingsRepository;
 
 class AutoVetApplier
@@ -20,40 +21,27 @@ class AutoVetApplier
     public function apply(PublicRecord|BusinessAffiliation $subject, VetResult $result, string $mode): string
     {
         $shouldAuto = $this->shouldAutoDecide($result, $mode);
+        $action = 'draft';
 
-        if (! $shouldAuto) {
+        if (! $shouldAuto
+            || $result->decision === 'needs_human'
+            || ($result->decision === 'publish' && ! $result->allChecksPassed())
+            || ($result->decision === 'publish' && $result->reliabilityLevel === null)
+        ) {
             $subject->autovet_draft = $result->toArray();
             $subject->save();
-
-            return 'draft';
-        }
-
-        if ($result->decision === 'needs_human') {
-            $subject->autovet_draft = $result->toArray();
+        } else {
+            $this->applyDecision($subject, $result);
+            $subject->autovet_draft = null;
             $subject->save();
-
-            return 'draft';
+            $action = 'applied';
         }
 
-        if ($result->decision === 'publish' && ! $result->allChecksPassed()) {
-            $subject->autovet_draft = $result->toArray();
-            $subject->save();
-
-            return 'draft';
+        if ($subject instanceof PublicRecord) {
+            $subject->addTopics([Topic::AI_CHECKED]);
         }
 
-        if ($result->decision === 'publish' && $result->reliabilityLevel === null) {
-            $subject->autovet_draft = $result->toArray();
-            $subject->save();
-
-            return 'draft';
-        }
-
-        $this->applyDecision($subject, $result);
-        $subject->autovet_draft = null;
-        $subject->save();
-
-        return 'applied';
+        return $action;
     }
 
     private function shouldAutoDecide(VetResult $result, string $mode): bool

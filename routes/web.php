@@ -2,7 +2,8 @@
 
 use App\Catalog\PageMeta;
 use App\Http\Controllers\Admin\AuditController;
-use App\Http\Controllers\Admin\AutoVetModelsController;
+use App\Http\Controllers\Admin\LlmModelsController;
+use App\Http\Controllers\Admin\NewsRadarController;
 use App\Http\Controllers\Admin\BusinessAdminController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Admin\PartyController;
@@ -144,7 +145,7 @@ Route::middleware('throttle:catalog')->group(function () {
 
     Route::get('/pages/{page:slug}', [PageController::class, 'show'])->name('pages.show');
 
-    Route::prefix('scipol')->name('scipol.')->group(function () {
+    Route::prefix('scipol')->name('scipol.')->middleware('web.feature:scipol')->group(function () {
         Route::get('/', SciPolHubController::class)->name('hub');
         Route::get('/bandingkan', SciPolCompareController::class)->name('compare');
         Route::get('/isu', [SciPolIssueController::class, 'index'])->name('issues.index');
@@ -161,52 +162,57 @@ Route::middleware('throttle:catalog')->group(function () {
 });
 
 Route::get('/scipol/ekspor', SciPolExportController::class)
-    ->middleware('throttle:scipol-export')
+    ->middleware(['web.feature:scipol', 'throttle:scipol-export'])
     ->name('scipol.export');
 
 Route::get('/search', SearchController::class)->middleware('throttle:search')->name('search');
 
-Route::get('/reports', function () {
-    return Inertia::render('Pengajuan', [
-        'parties' => Party::query()->orderBy('name')->get(['id', 'name']),
-        'businesses' => Business::query()->orderBy('name')->get(['id', 'name']),
-    ]);
-})->name('reports.create');
+Route::middleware('web.feature:submissions')->group(function () {
+    Route::get('/reports', function () {
+        return Inertia::render('Pengajuan', [
+            'parties' => Party::query()->orderBy('name')->get(['id', 'name']),
+            'businesses' => Business::query()->orderBy('name')->get(['id', 'name']),
+        ]);
+    })->name('reports.create');
 
-Route::get('/reports/suggest', [PoliticianController::class, 'suggest'])
-    ->middleware('throttle:60,1')
-    ->name('reports.suggest');
+    Route::get('/reports/suggest', [PoliticianController::class, 'suggest'])
+        ->middleware('throttle:60,1')
+        ->name('reports.suggest');
 
-Route::get('/reports/businesses/suggest', [BusinessController::class, 'suggest'])
-    ->middleware('throttle:60,1')
-    ->name('reports.businesses.suggest');
+    Route::get('/reports/businesses/suggest', [BusinessController::class, 'suggest'])
+        ->middleware('throttle:60,1')
+        ->name('reports.businesses.suggest');
 
-Route::get('/reports/received', [SubmissionTrackingController::class, 'receipt'])->name('reports.receipt');
+    Route::post('/reports', [PoliticianController::class, 'create'])
+        ->middleware('throttle:reports')
+        ->name('newReport');
 
-Route::get('/reports/track', [SubmissionTrackingController::class, 'create'])->name('reports.track');
-Route::post('/reports/track', [SubmissionTrackingController::class, 'show'])
-    ->middleware('throttle:track')
-    ->name('reports.track.submit');
+    Route::post('/reports/affiliations', [BusinessAffiliationController::class, 'create'])
+        ->middleware('throttle:reports')
+        ->name('reports.affiliations.store');
+});
 
-Route::get('/dispute', [DisputeController::class, 'create'])->name('dispute.create');
-Route::get('/dispute/received', [DisputeController::class, 'received'])->name('dispute.received');
-Route::get('/dispute/records', [DisputeController::class, 'records'])
-    ->middleware('throttle:60,1')
-    ->name('dispute.records');
-Route::get('/dispute/affiliations', [DisputeController::class, 'affiliations'])
-    ->middleware('throttle:60,1')
-    ->name('dispute.affiliations');
-Route::post('/dispute', [DisputeController::class, 'store'])
-    ->middleware('throttle:disputes')
-    ->name('dispute.store');
+Route::middleware('web.feature:tracking')->group(function () {
+    Route::get('/reports/received', [SubmissionTrackingController::class, 'receipt'])->name('reports.receipt');
+    Route::get('/reports/track', [SubmissionTrackingController::class, 'create'])->name('reports.track');
+    Route::post('/reports/track', [SubmissionTrackingController::class, 'show'])
+        ->middleware('throttle:track')
+        ->name('reports.track.submit');
+});
 
-Route::post('/reports', [PoliticianController::class, 'create'])
-    ->middleware('throttle:reports')
-    ->name('newReport');
-
-Route::post('/reports/affiliations', [BusinessAffiliationController::class, 'create'])
-    ->middleware('throttle:reports')
-    ->name('reports.affiliations.store');
+Route::middleware('web.feature:disputes')->group(function () {
+    Route::get('/dispute', [DisputeController::class, 'create'])->name('dispute.create');
+    Route::get('/dispute/received', [DisputeController::class, 'received'])->name('dispute.received');
+    Route::get('/dispute/records', [DisputeController::class, 'records'])
+        ->middleware('throttle:60,1')
+        ->name('dispute.records');
+    Route::get('/dispute/affiliations', [DisputeController::class, 'affiliations'])
+        ->middleware('throttle:60,1')
+        ->name('dispute.affiliations');
+    Route::post('/dispute', [DisputeController::class, 'store'])
+        ->middleware('throttle:disputes')
+        ->name('dispute.store');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('permission:checks.perform')->group(function () {
@@ -243,8 +249,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('permission:settings.manage')->group(function () {
         Route::get('/admin/settings', [SettingsController::class, 'edit'])->name('admin.settings.edit');
-        Route::post('/admin/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
-        Route::get('/admin/autovet/models', [AutoVetModelsController::class, 'index'])->name('admin.autovet.models');
+        Route::get('/admin/settings/web', [SettingsController::class, 'editWeb'])->name('admin.settings.web');
+        Route::post('/admin/settings/web', [SettingsController::class, 'updateWeb'])->name('admin.settings.web.update');
+        Route::get('/admin/settings/llm', [SettingsController::class, 'editLlm'])->name('admin.settings.llm');
+        Route::post('/admin/settings/llm', [SettingsController::class, 'updateLlm'])->name('admin.settings.llm.update');
+        Route::get('/admin/settings/autovet', [SettingsController::class, 'editAutoVet'])->name('admin.settings.autovet');
+        Route::post('/admin/settings/autovet', [SettingsController::class, 'updateAutoVet'])->name('admin.settings.autovet.update');
+        Route::get('/admin/settings/newsradar', [SettingsController::class, 'editNewsRadar'])->name('admin.settings.newsradar');
+        Route::post('/admin/settings/newsradar', [SettingsController::class, 'updateNewsRadar'])->name('admin.settings.newsradar.update');
+        Route::post('/admin/newsradar/hunt', [NewsRadarController::class, 'hunt'])->name('admin.newsradar.hunt');
+        Route::get('/admin/llm/models', [LlmModelsController::class, 'index'])->name('admin.llm.models');
+        Route::get('/admin/autovet/models', [LlmModelsController::class, 'index'])->name('admin.autovet.models');
     });
 
     Route::get('/admin/audits', [AuditController::class, 'index'])

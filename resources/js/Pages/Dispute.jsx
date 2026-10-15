@@ -27,6 +27,7 @@ const targets = [
 
 export default function Dispute({ auth, turnstile }) {
     const sitekey = turnstile?.sitekey ?? '';
+    const turnstileEnabled = turnstile?.enabled !== false;
     const [target, setTarget] = useState(null);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
@@ -226,16 +227,23 @@ export default function Dispute({ auth, turnstile }) {
                             handleChange={(event) => setData('source_url', event.target.value)}
                         />
                     </div>
-                    <div>
-                        <p className="font-bold mb-2">Verifikasi keamanan</p>
-                        <TurnstileField
-                            sitekey={sitekey}
-                            action="dispute"
-                            resetKey={turnstileReset}
-                            onToken={(token) => setData('cf-turnstile-response', token)}
-                        />
-                    </div>
-                    <button className="gov-button w-fit" disabled={processing || !data['cf-turnstile-response']}>Kirim sanggahan</button>
+                    {turnstileEnabled ? (
+                        <div>
+                            <p className="font-bold mb-2">Verifikasi keamanan</p>
+                            <TurnstileField
+                                sitekey={sitekey}
+                                action="dispute"
+                                resetKey={turnstileReset}
+                                onToken={(token) => setData('cf-turnstile-response', token)}
+                            />
+                        </div>
+                    ) : null}
+                    <button
+                        className="gov-button w-fit"
+                        disabled={processing || (turnstileEnabled && !data['cf-turnstile-response'])}
+                    >
+                        Kirim sanggahan
+                    </button>
                     <p className="text-muted">
                         Belum menemukan arsipnya? <Link href="/">Lihat catatan terbaru</Link>
                         {' · '}
