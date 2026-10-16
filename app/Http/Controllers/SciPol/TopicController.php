@@ -21,7 +21,7 @@ class TopicController extends Controller
             'q' => $data['filters']['q'] ?: null,
         ], fn ($value) => $value !== null && $value !== '');
 
-        return Inertia::render('SciPol/Topik', [
+        return Inertia::render('SciPol/Topics', [
             ...$data,
             'export_url' => route('scipol.export', $exportQuery),
         ]);

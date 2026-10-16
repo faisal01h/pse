@@ -7,7 +7,14 @@ use App\Plugins\RealPolitik\Events\PowerSignalsCreated;
 use App\Plugins\RealPolitik\Models\PowerSignal;
 use App\Plugins\RealPolitik\Models\SituationBrief;
 use App\Settings\SettingsRepository;
+use App\Models\Party;
+use App\Models\Politician;
+use App\Models\Topic;
+use App\Plugins\RealPolitik\Models\WatchlistItem;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class RealPolitikService
 {
@@ -43,6 +50,29 @@ class RealPolitikService
     }
 
     /**
+     * Start of the look-back range for change detectors: the later of the last
+     * successful run and the configured window, capped at a week so downtime
+     * is caught up without scanning unbounded history. Detectors dedupe by
+     * fingerprint, so overlap is safe.
+     */
+    public function cursor(Carbon $now): Carbon
+    {
+        $windowStart = $now->copy()->subHours(max(1, $this->settings->getInt('realpolitik.window_hours', 24)));
+        $floor = $now->copy()->subDays(7);
+        $last = $this->settings->getString('realpolitik.last_run_at', '');
+
+        try {
+            $lastAt = $last !== '' ? Carbon::parse($last) : null;
+        } catch (\Throwable) {
+            $lastAt = null;
+        }
+
+        $since = $lastAt && $lastAt->lt($windowStart) ? $lastAt : $windowStart;
+
+        return $since->lt($floor) ? $floor : $since;
+    }
+
+    /**
      * @return array{signals: int, brief_id: int|null}
      */
     public function tick(bool $force = false): array
@@ -55,18 +85,32 @@ class RealPolitikService
             return ['signals' => 0, 'brief_id' => null];
         }
 
-        $created = [
-            ...$this->shocks->detectShocks(),
-            ...$this->drift->detect(),
-            ...$this->coalitions->detect(),
-        ];
+        $now = now();
+        $since = $this->cursor($now);
+
+        $created = [];
+        foreach ([
+            'shocks' => fn () => $this->shocks->detectShocks($now),
+            'drift' => fn () => $this->drift->detect($now, $since),
+            'coalitions' => fn () => $this->coalitions->detect($now, $since),
+        ] as $name => $detect) {
+            try {
+                array_push($created, ...$detect());
+            } catch (Throwable $e) {
+                Log::error("REALPOLITIK detector '{$name}' failed.", ['exception' => $e]);
+            }
+        }
 
         $brief = null;
         if ($this->settings->getBool('realpolitik.sitrep_enabled', true)) {
-            $brief = $this->sitrep->generate();
+            try {
+                $brief = $this->sitrep->generate();
+            } catch (Throwable $e) {
+                Log::error('REALPOLITIK sitrep failed.', ['exception' => $e]);
+            }
         }
 
-        $this->settings->set('realpolitik.last_run_at', now()->toIso8601String());
+        $this->settings->set('realpolitik.last_run_at', $now->toIso8601String());
 
         if ($created !== []) {
             event(new PowerSignalsCreated(collect($created)->pluck('id')->all()));
@@ -79,18 +123,77 @@ class RealPolitikService
     }
 
     /**
+     * @param  Collection<int, WatchlistItem>|null  $watchlist  the viewer's watchlist; null for guests
      * @return list<array<string, mixed>>
      */
-    public function presentSignals(int $limit = 40): array
+    public function presentSignals(int $limit = 40, ?Collection $watchlist = null, bool $onlyWatched = false): array
     {
-        return PowerSignal::query()
+        $watched = $this->watchedIds($watchlist);
+
+        $signals = PowerSignal::query()
             ->open()
-            ->with(['politician:id,name', 'party:id,name'])
+            ->with(['politician:id,name,party_id', 'party:id,name'])
             ->orderByDesc('created_at')
-            ->limit($limit)
+            ->limit($onlyWatched ? 300 : $limit)
             ->get()
-            ->map(fn (PowerSignal $signal) => $this->presentSignal($signal))
-            ->all();
+            ->map(fn (PowerSignal $signal) => $this->presentSignal($signal) + [
+                'watched' => $this->matchesWatchlist($signal, $watched),
+            ]);
+
+        if ($onlyWatched) {
+            $signals = $signals->where('watched', true)->take($limit);
+        }
+
+        return $signals->values()->all();
+    }
+
+    /**
+     * @param  Collection<int, WatchlistItem>|null  $watchlist
+     * @return array{politician: array<int, true>, party: array<int, true>, topic: array<int, true>}
+     */
+    private function watchedIds(?Collection $watchlist): array
+    {
+        $ids = ['politician' => [], 'party' => [], 'topic' => []];
+        foreach ($watchlist ?? [] as $item) {
+            $key = match ($item->watchable_type) {
+                Politician::class => 'politician',
+                Party::class => 'party',
+                Topic::class => 'topic',
+                default => null,
+            };
+            if ($key !== null) {
+                $ids[$key][(int) $item->watchable_id] = true;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param  array{politician: array<int, true>, party: array<int, true>, topic: array<int, true>}  $watched
+     */
+    private function matchesWatchlist(PowerSignal $signal, array $watched): bool
+    {
+        $evidence = $signal->evidence ?? [];
+        $politicianIds = array_filter([$signal->politician_id, ...($evidence['politician_ids'] ?? [])]);
+        $partyIds = array_filter([
+            $signal->party_id,
+            $signal->politician?->party_id,
+            ...($evidence['party_ids'] ?? []),
+        ]);
+
+        foreach ($politicianIds as $id) {
+            if (isset($watched['politician'][(int) $id])) {
+                return true;
+            }
+        }
+        foreach ($partyIds as $id) {
+            if (isset($watched['party'][(int) $id])) {
+                return true;
+            }
+        }
+
+        return $signal->topic_id !== null && isset($watched['topic'][(int) $signal->topic_id]);
     }
 
     /**

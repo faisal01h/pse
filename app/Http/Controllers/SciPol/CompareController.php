@@ -26,7 +26,7 @@ class CompareController extends Controller
 
         $maskedIds = array_map(fn (array $subject) => $subject['id'], $subjects);
 
-        return Inertia::render('SciPol/Bandingkan', [
+        return Inertia::render('SciPol/Compare', [
             'type' => $type,
             'ids' => $maskedIds,
             'subjects' => $subjects,

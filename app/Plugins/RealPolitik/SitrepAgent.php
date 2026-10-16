@@ -9,6 +9,7 @@ use App\Plugins\RealPolitik\Models\SituationBrief;
 use App\Settings\SettingsRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class SitrepAgent
@@ -71,6 +72,22 @@ class SitrepAgent
                 return $brief;
             }
 
+            $vectors = collect($parsed['power_vectors'] ?? [])
+                ->filter(fn ($vector) => is_array($vector))
+                ->map(function (array $vector) use ($records) {
+                    $vector['public_record_ids'] = collect($vector['public_record_ids'] ?? [])
+                        ->map(fn ($id) => (int) $id)
+                        ->filter(fn (int $id) => $records->contains('id', $id))
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    return $vector;
+                })
+                ->filter(fn (array $vector) => $vector['public_record_ids'] !== [])
+                ->values()
+                ->all();
+
             $summary = trim((string) ($parsed['summary_md'] ?? $parsed['summary'] ?? ''));
             $brief->fill([
                 'status' => ($parsed['confidence'] ?? '') === 'low'
@@ -81,7 +98,7 @@ class SitrepAgent
                 'payload' => [
                     'actors' => $parsed['actors'] ?? [],
                     'stakes' => $parsed['stakes'] ?? [],
-                    'power_vectors' => $parsed['power_vectors'] ?? [],
+                    'power_vectors' => $vectors,
                     'watch_next' => $parsed['watch_next'] ?? [],
                     'citations' => $citations->all(),
                 ],
@@ -96,9 +113,10 @@ class SitrepAgent
                 'evidence' => ['public_record_ids' => $citations->all(), 'brief_id' => $brief->id],
             ]);
         } catch (Throwable $e) {
+            Log::error('REALPOLITIK sitrep generation failed.', ['brief_id' => $brief->id, 'exception' => $e]);
             $brief->fill([
                 'status' => SituationBrief::STATUS_FAILED,
-                'summary_md' => mb_substr($e->getMessage(), 0, 2000),
+                'summary_md' => 'Pembuatan ringkasan gagal. Lihat log server.',
             ])->save();
         }
 

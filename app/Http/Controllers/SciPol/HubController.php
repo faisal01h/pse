@@ -19,6 +19,11 @@ class HubController extends Controller
                 'blurb' => 'Side-by-side matrix for 2–3 figures or parties: axes, issue stances, links, affiliations, and record counts.',
             ],
             [
+                'href' => route('scipol.relationships'),
+                'title' => 'Relationship browser',
+                'blurb' => 'Walk one figure or party outward: links, stances, tendencies, and affiliations, as a graph and as sourced tables.',
+            ],
+            [
                 'href' => route('scipol.issues.index'),
                 'title' => 'Issue map',
                 'blurb' => 'Actor crosstabs by support / oppose / mixed on named issues.',

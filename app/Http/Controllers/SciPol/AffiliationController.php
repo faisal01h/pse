@@ -22,7 +22,7 @@ class AffiliationController extends Controller
             'q' => $data['filters']['q'] ?: null,
         ], fn ($value) => $value !== null && $value !== '');
 
-        return Inertia::render('SciPol/Afiliasi', [
+        return Inertia::render('SciPol/Affiliations', [
             ...$data,
             'export_url' => route('scipol.export', $exportQuery),
         ]);

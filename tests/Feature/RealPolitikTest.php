@@ -9,7 +9,13 @@ use App\Models\Politician;
 use App\Models\PoliticianLink;
 use App\Models\PublicRecord;
 use App\Models\User;
+use App\Plugins\Llm\LlmClient;
+use App\Plugins\Llm\LlmService;
 use App\Plugins\PluginManager;
+use App\Plugins\RealPolitik\DriftDetector;
+use App\Plugins\RealPolitik\Models\SituationBrief;
+use App\Plugins\RealPolitik\SignalDetector;
+use App\Plugins\RealPolitik\SitrepAgent;
 use App\Plugins\RealPolitik\CuiBonoAnalyzer;
 use App\Plugins\RealPolitik\Models\PowerSignal;
 use App\Plugins\RealPolitik\RealPolitikService;
@@ -251,5 +257,196 @@ class RealPolitikTest extends TestCase
                 ->component('RealPolitik/Board')
                 ->where('cuiBono.as_of', $record->occurred_on->toDateString())
                 ->has('cuiBono.beneficiaries', 1));
+    }
+
+    public function test_drift_dedup_is_not_suppressed_by_other_issues_or_missing_names(): void
+    {
+        app(SettingsRepository::class)->setMany(['realpolitik.enabled' => true]);
+        $writer = app(TemporalIntervalWriter::class);
+        $a = Politician::create(['name' => 'Sari', 'position' => 'Anggota', 'institution' => 'DPR', 'status' => 1]);
+
+        foreach (['Subsidi pangan', 'Pajak karbon'] as $name) {
+            $issue = Issue::findOrCreateByName($name);
+            foreach ([IssueStance::SUPPORT => 10, IssueStance::OPPOSE => 0] as $position => $daysAgo) {
+                $writer->supersedeStance([
+                    'issue_id' => $issue->id,
+                    'politician_id' => $a->id,
+                    'party_id' => null,
+                    'position' => $position,
+                    'note' => 'Sumber menyebut posisi ini secara eksplisit dalam pernyataan resmi.',
+                    'source_url' => 'https://example.com/'.$position.$issue->id,
+                    'source_type' => 'Pidato',
+                    'occurred_on' => now()->subDays($daysAgo)->toDateString(),
+                    'user_id' => null,
+                ]);
+            }
+        }
+
+        $detector = app(DriftDetector::class);
+        $this->assertCount(2, $detector->detect());
+        $this->assertCount(0, $detector->detect());
+    }
+
+    public function test_tick_survives_a_failing_detector_and_records_last_run(): void
+    {
+        $settings = app(SettingsRepository::class);
+        $settings->setMany(['realpolitik.enabled' => true, 'realpolitik.sitrep_enabled' => false]);
+
+        $this->app->bind(SignalDetector::class, fn () => new class($settings) extends SignalDetector
+        {
+            public function detectShocks(?\Carbon\Carbon $now = null): array
+            {
+                throw new \RuntimeException('boom');
+            }
+        });
+
+        $result = app(RealPolitikService::class)->tick(force: true);
+
+        $this->assertSame(0, $result['signals']);
+        $this->assertNotSame('', $settings->getString('realpolitik.last_run_at', ''));
+    }
+
+    public function test_sitrep_drops_uncited_vectors_and_hides_failure_details(): void
+    {
+        $settings = app(SettingsRepository::class);
+        $settings->setMany(['realpolitik.enabled' => true, 'realpolitik.sitrep_enabled' => true]);
+
+        $politician = Politician::create(['name' => 'Sari', 'position' => 'Anggota', 'institution' => 'DPR', 'status' => 1]);
+        $ids = [];
+        for ($i = 0; $i < 2; $i++) {
+            $ids[] = PublicRecord::create([
+                'politician_id' => $politician->id,
+                'category' => PublicRecord::CATEGORY_STATEMENT,
+                'quote' => 'Pernyataan '.$i,
+                'source_url' => 'https://example.com/'.$i,
+                'source_type' => 'Berita',
+                'status' => PublicRecord::STATUS_PUBLISHED,
+                'occurred_on' => now()->toDateString(),
+            ])->id;
+        }
+
+        $llm = $this->createMock(LlmService::class);
+        $llm->method('isConfigured')->willReturn(true);
+        $this->app->instance(LlmService::class, $llm);
+
+        $payloads = [
+            json_encode([
+                'summary_md' => 'Ringkasan.',
+                'citations' => [$ids[0]],
+                'confidence' => 'medium',
+                'power_vectors' => [
+                    ['name' => 'Valid', 'vector' => 'gaining', 'public_record_ids' => [$ids[0], 9999]],
+                    ['name' => 'Fiktif', 'vector' => 'pressured', 'public_record_ids' => [9999]],
+                ],
+            ]),
+            null,
+        ];
+        $calls = 0;
+        $client = new class($payloads, $calls) implements LlmClient
+        {
+            public function __construct(private array $payloads, private int &$calls) {}
+
+            public function chat(array $messages, array $tools = []): array
+            {
+                $payload = $this->payloads[$this->calls++];
+                if ($payload === null) {
+                    throw new \RuntimeException('secret provider detail sk-123');
+                }
+
+                return ['choices' => [['message' => ['content' => $payload]]]];
+            }
+        };
+        $llm->method('makeClient')->willReturn($client);
+
+        $agent = app(SitrepAgent::class);
+
+        $ok = $agent->generate();
+        $this->assertSame(SituationBrief::STATUS_READY, $ok->status);
+        $vectors = $ok->payload['power_vectors'];
+        $this->assertCount(1, $vectors);
+        $this->assertSame([$ids[0]], $vectors[0]['public_record_ids']);
+
+        $failed = $agent->generate();
+        $this->assertSame(SituationBrief::STATUS_FAILED, $failed->status);
+        $this->assertStringNotContainsString('sk-123', $failed->summary_md);
+    }
+
+    public function test_cursor_catches_up_after_downtime_but_is_capped_and_deduped(): void
+    {
+        $settings = app(SettingsRepository::class);
+        $settings->setMany(['realpolitik.enabled' => true, 'realpolitik.window_hours' => 24]);
+        $service = app(RealPolitikService::class);
+        $now = now();
+
+        $settings->set('realpolitik.last_run_at', $now->copy()->subHours(2)->toIso8601String());
+        $this->assertEquals($now->copy()->subHours(24)->timestamp, $service->cursor($now)->timestamp);
+
+        $settings->set('realpolitik.last_run_at', $now->copy()->subDays(3)->toIso8601String());
+        $this->assertEquals($now->copy()->subDays(3)->timestamp, $service->cursor($now)->timestamp);
+
+        $settings->set('realpolitik.last_run_at', $now->copy()->subDays(30)->toIso8601String());
+        $this->assertEquals($now->copy()->subDays(7)->timestamp, $service->cursor($now)->timestamp);
+    }
+
+    public function test_coalition_changes_are_not_limited_to_fifty_and_do_not_repeat(): void
+    {
+        app(SettingsRepository::class)->setMany(['realpolitik.enabled' => true]);
+        $writer = app(TemporalIntervalWriter::class);
+        $people = [];
+        for ($i = 0; $i < 56; $i++) {
+            $people[] = Politician::create(['name' => 'Tokoh '.$i, 'position' => 'Anggota', 'institution' => 'DPR', 'status' => 1]);
+        }
+        for ($i = 0; $i < 55; $i++) {
+            [$l, $r] = PoliticianLink::endpoints(PoliticianLink::TYPE_ALLY, $people[$i]->id, $people[$i + 1]->id);
+            $writer->openPoliticianLink([
+                'politician_a_id' => $l,
+                'politician_b_id' => $r,
+                'type' => PoliticianLink::TYPE_ALLY,
+                'summary' => 'Keduanya disebut bersekutu dalam pemberitaan kampanye daerah itu.',
+                'source_url' => 'https://example.com/l'.$i,
+                'source_type' => 'Berita',
+                'occurred_on' => now()->toDateString(),
+                'user_id' => null,
+            ]);
+        }
+
+        $detector = app(\App\Plugins\RealPolitik\CoalitionChangeDetector::class);
+        $this->assertCount(55, $detector->detect(now(), now()->subDays(2)));
+        $this->assertCount(0, $detector->detect(now(), now()->subDays(2)));
+    }
+
+    public function test_board_flags_and_filters_signals_by_watchlist(): void
+    {
+        app(SettingsRepository::class)->setMany(['realpolitik.enabled' => true, 'web.realpolitik_enabled' => true]);
+        $user = User::factory()->create();
+        $watched = Politician::create(['name' => 'Sari', 'position' => 'Anggota', 'institution' => 'DPR', 'status' => 1]);
+        $other = Politician::create(['name' => 'Budi', 'position' => 'Anggota', 'institution' => 'DPR', 'status' => 1]);
+        foreach ([$watched, $other] as $p) {
+            PowerSignal::create([
+                'type' => PowerSignal::TYPE_SHOCK,
+                'severity' => PowerSignal::SEVERITY_MEDIUM,
+                'politician_id' => $p->id,
+                'title' => 'Sinyal '.$p->name,
+            ]);
+        }
+        \App\Plugins\RealPolitik\Models\WatchlistItem::create([
+            'user_id' => $user->id,
+            'watchable_type' => Politician::class,
+            'watchable_id' => $watched->id,
+        ]);
+
+        $this->actingAs($user)->get(route('realpolitik.board'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('signals', 2)
+                ->where('signals.0.watched', fn ($v) => is_bool($v))
+                ->where('onlyWatched', false));
+
+        $this->actingAs($user)->get(route('realpolitik.board', ['watching' => 1]))
+            ->assertInertia(fn ($page) => $page
+                ->has('signals', 1)
+                ->where('signals.0.title', 'Sinyal Sari')
+                ->where('signals.0.watched', true)
+                ->where('onlyWatched', true));
     }
 }

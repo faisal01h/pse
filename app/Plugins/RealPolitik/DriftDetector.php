@@ -17,19 +17,19 @@ class DriftDetector
      *
      * @return list<PowerSignal>
      */
-    public function detect(?Carbon $now = null): array
+    public function detect(?Carbon $now = null, ?Carbon $since = null): array
     {
         $now ??= now();
         $windowHours = max(1, $this->settings->getInt('realpolitik.window_hours', 24));
-        $since = $now->copy()->subHours($windowHours);
+        $since ??= $now->copy()->subHours($windowHours);
 
         $closed = IssueStance::query()
             ->whereNotNull('ended_at')
             ->where('ended_at', '>=', $since->toDateString())
             ->whereNotNull('politician_id')
             ->with('issue')
-            ->orderByDesc('ended_at')
-            ->limit(100)
+            ->orderBy('ended_at')
+            ->orderBy('id')
             ->get();
 
         $created = [];
@@ -49,8 +49,8 @@ class DriftDetector
             if (PowerSignal::query()
                 ->where('type', PowerSignal::TYPE_DRIFT)
                 ->where('politician_id', $previous->politician_id)
-                ->where('created_at', '>=', $since)
-                ->where('title', 'like', '%'.$previous->issue?->name.'%')
+                ->where('evidence->previous_stance_id', $previous->id)
+                ->where('evidence->current_stance_id', $current->id)
                 ->exists()) {
                 continue;
             }

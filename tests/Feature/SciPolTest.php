@@ -2,12 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Catalog\TemporalIntervalWriter;
 use App\Models\Business;
 use App\Models\BusinessAffiliation;
 use App\Models\IdeologyPosition;
 use App\Models\Issue;
 use App\Models\IssueStance;
+use App\Models\Party;
+use App\Models\PartyLink;
 use App\Models\Politician;
+use App\Models\PoliticianLink;
 use App\Models\PublicRecord;
 use App\Models\Topic;
 use App\Plugins\RealPolitik\Models\PowerSignal;
@@ -29,7 +33,8 @@ class SciPolTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('SciPol/Index')
                 ->has('codebook')
-                ->has('tools', 5)
+                ->has('tools', 6)
+                ->where('tools.1.title', 'Relationship browser')
                 ->where('realpolitikActive', false)
                 ->where('plugins.realpolitik', false));
     }
@@ -44,7 +49,7 @@ class SciPolTest extends TestCase
                 ->component('SciPol/Index')
                 ->where('realpolitikActive', true)
                 ->where('plugins.realpolitik', true)
-                ->has('tools', 6)
+                ->has('tools', 7)
                 ->where('tools.1.title', 'REALPOLITIK')
                 ->where('tools.1.href', route('scipol.realpolitik')));
     }
@@ -103,7 +108,7 @@ class SciPolTest extends TestCase
             'ids' => $publishedRef.','.$hiddenRef,
         ]))->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('SciPol/Bandingkan')
+                ->component('SciPol/Compare')
                 ->where('subjects', fn ($subjects) => count($subjects) === 1
                     && $subjects[0]['id'] === $publishedRef
                     && $subjects[0]['id'] !== $published->id
@@ -119,7 +124,7 @@ class SciPolTest extends TestCase
             'ids' => (string) $published->id,
         ]))->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('SciPol/Bandingkan')
+                ->component('SciPol/Compare')
                 ->where('subjects', [])
                 ->where('ids', []));
     }
@@ -158,7 +163,7 @@ class SciPolTest extends TestCase
         $this->get(route('scipol.issues.show', $issueRef))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('SciPol/IsuShow')
+                ->component('SciPol/IssueShow')
                 ->where('issue.id', $issueRef)
                 ->where('groups.dukung', fn ($rows) => count($rows) === 1
                     && $rows[0]['subject']['id'] === $publishedRef));
@@ -191,7 +196,7 @@ class SciPolTest extends TestCase
         $this->get(route('scipol.affiliations', ['sector' => 'Energi']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('SciPol/Afiliasi')
+                ->component('SciPol/Affiliations')
                 ->has('items', 1)
                 ->where('items.0.business.name', 'PT Contoh')
                 ->where('items.0.id', fn ($id) => is_string($id) && $id !== (string) $business->id));
@@ -199,7 +204,7 @@ class SciPolTest extends TestCase
         $this->get(route('scipol.topics', ['topic' => $topicRef]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('SciPol/Topik')
+                ->component('SciPol/Topics')
                 ->has('items', 1)
                 ->where('items.0.politician.name', 'Sari Afiliasi')
                 ->where('filters.topic', $topicRef));
@@ -210,7 +215,7 @@ class SciPolTest extends TestCase
         $this->get(route('scipol.practice'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('SciPol/Latihan')
+                ->component('SciPol/Practice')
                 ->where('report_url', route('reports.create'))
                 ->where('dispute_url', route('dispute.create')));
     }
@@ -281,6 +286,149 @@ class SciPolTest extends TestCase
             ['Meta', 'Codebook', 'Subjects', 'Axes', 'Stances', 'Affiliations', 'Records'],
             $names
         );
+    }
+
+    public function test_indonesian_scipol_paths_redirect_to_english(): void
+    {
+        $this->get('/scipol/bandingkan?type=party')
+            ->assertRedirect('/scipol/compare?type=party');
+        $this->get('/scipol/isu')
+            ->assertRedirect('/scipol/issues');
+        $this->get('/scipol/isu/abc123?as_of=2024-01-01')
+            ->assertRedirect('/scipol/issues/abc123?as_of=2024-01-01');
+        $this->get('/scipol/afiliasi')
+            ->assertRedirect('/scipol/affiliations');
+        $this->get('/scipol/topik')
+            ->assertRedirect('/scipol/topics');
+        $this->get('/scipol/latihan')
+            ->assertRedirect('/scipol/practice');
+        $this->get('/scipol/ekspor')
+            ->assertRedirect('/scipol/export');
+    }
+
+    public function test_relationship_browser_hides_unpublished_counterparts(): void
+    {
+        $writer = app(TemporalIntervalWriter::class);
+        $published = $this->politician('Sari Terbit');
+        $ally = $this->politician('Budi Sekutu');
+        $hidden = Politician::create([
+            'name' => 'Tidak Terbit',
+            'position' => 'Anggota DPR',
+            'institution' => 'DPR RI',
+            'status' => 0,
+        ]);
+
+        $open = function (int $from, int $to, string $url) use ($writer) {
+            [$a, $b] = PoliticianLink::endpoints(PoliticianLink::TYPE_ALLY, $from, $to);
+            $writer->openPoliticianLink([
+                'politician_a_id' => $a,
+                'politician_b_id' => $b,
+                'type' => PoliticianLink::TYPE_ALLY,
+                'summary' => 'Keduanya disebut satu koalisi dalam pemberitaan kampanye daerah itu.',
+                'source_url' => $url,
+                'source_type' => 'Berita',
+                'occurred_on' => '2024-01-01',
+                'user_id' => null,
+            ]);
+        };
+        $open($published->id, $ally->id, 'https://example.com/sekutu');
+        $open($published->id, $hidden->id, 'https://example.com/rahasia');
+
+        $mask = app(MaskedId::class);
+        $this->get(route('scipol.relationships', [
+            'type' => 'politician',
+            'id' => $mask->encode(MaskedId::TYPE_POLITICIAN, $published->id),
+        ]))->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('SciPol/Relationships')
+                ->has('links', 1)
+                ->where('links.0.other.name', 'Budi Sekutu')
+                ->has('graph.nodes', 2)
+                ->where('graph.nodes', fn ($nodes) => collect($nodes)->pluck('label')->contains('Budi Sekutu')
+                    && ! collect($nodes)->pluck('label')->contains('Tidak Terbit')));
+    }
+
+    public function test_relationship_browser_rejects_raw_primary_keys(): void
+    {
+        $published = $this->politician('Raw Browser');
+
+        $this->get(route('scipol.relationships', [
+            'type' => 'politician',
+            'id' => (string) $published->id,
+        ]))->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('SciPol/Relationships')
+                ->where('subject', null)
+                ->where('graph', null));
+    }
+
+    public function test_relationship_browser_as_of_returns_earlier_stance(): void
+    {
+        $writer = app(TemporalIntervalWriter::class);
+        $politician = $this->politician('Sari Sikap');
+        $issue = Issue::findOrCreateByName('Subsidi pangan');
+        $note = 'Sumber menyebut dukungan subsidi pangan secara eksplisit dalam pidato resmi.';
+
+        $writer->supersedeStance([
+            'issue_id' => $issue->id,
+            'politician_id' => $politician->id,
+            'party_id' => null,
+            'position' => IssueStance::SUPPORT,
+            'note' => $note,
+            'source_url' => 'https://example.com/dukung',
+            'source_type' => 'Pidato',
+            'occurred_on' => '2024-01-10',
+            'user_id' => null,
+        ]);
+        $writer->supersedeStance([
+            'issue_id' => $issue->id,
+            'politician_id' => $politician->id,
+            'party_id' => null,
+            'position' => IssueStance::OPPOSE,
+            'note' => 'Sumber kemudian menyebut penolakan terhadap perluasan subsidi pangan tersebut.',
+            'source_url' => 'https://example.com/tolak',
+            'source_type' => 'Wawancara',
+            'occurred_on' => '2025-06-01',
+            'user_id' => null,
+        ]);
+
+        $mask = app(MaskedId::class);
+        $this->get(route('scipol.relationships', [
+            'type' => 'politician',
+            'id' => $mask->encode(MaskedId::TYPE_POLITICIAN, $politician->id),
+            'as_of' => '2024-06-01',
+        ]))->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('stances', 1)
+                ->where('stances.0.position_label', 'Support'));
+    }
+
+    public function test_party_relationship_browser_has_coalition_and_no_affiliations(): void
+    {
+        $writer = app(TemporalIntervalWriter::class);
+        $a = Party::create(['name' => 'Partai A']);
+        $b = Party::create(['name' => 'Partai B']);
+        [$left, $right] = PartyLink::endpoints(PartyLink::TYPE_COALITION, $a->id, $b->id);
+        $writer->openPartyLink([
+            'party_a_id' => $left,
+            'party_b_id' => $right,
+            'type' => PartyLink::TYPE_COALITION,
+            'summary' => 'Kedua partai disebut berada dalam koalisi yang sama pada pemilu tersebut.',
+            'source_url' => 'https://example.com/koalisi',
+            'source_type' => 'Berita',
+            'occurred_on' => '2023-01-01',
+            'user_id' => null,
+        ]);
+
+        $this->get(route('scipol.relationships', [
+            'type' => 'party',
+            'id' => app(MaskedId::class)->encode(MaskedId::TYPE_PARTY, $a->id),
+        ]))->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('links', 1)
+                ->where('links.0.label', 'Coalition')
+                ->where('links.0.other.name', 'Partai B')
+                ->where('affiliations', null));
     }
 
     private function politician(string $name): Politician

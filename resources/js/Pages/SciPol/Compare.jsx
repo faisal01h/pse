@@ -89,12 +89,12 @@ function SuggestField({ type, onPick }) {
     );
 }
 
-export default function Bandingkan({ type = 'politician', ids = [], subjects = [], export_url = null }) {
+export default function Compare({ type = 'politician', ids = [], subjects = [], export_url = null }) {
     const selected = useMemo(() => ids.map(String), [ids]);
 
     const apply = (nextType, nextIds) => {
         const unique = [...new Set(nextIds.map(String).filter(Boolean))].slice(0, 3);
-        Inertia.get('/scipol/bandingkan', {
+        Inertia.get('/scipol/compare', {
             type: nextType,
             ids: unique.join(','),
         }, { preserveState: true, replace: true });

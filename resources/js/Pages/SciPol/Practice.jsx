@@ -34,7 +34,7 @@ const CHECKLISTS = [
     },
 ];
 
-export default function Latihan({ report_url, track_url, dispute_url }) {
+export default function Practice({ report_url, track_url, dispute_url }) {
     const blocks = [
         { ...CHECKLISTS[0] },
         { ...CHECKLISTS[1], href: report_url, secondaryHref: track_url, secondaryLabel: 'Track submission' },
@@ -84,9 +84,9 @@ export default function Latihan({ report_url, track_url, dispute_url }) {
 
             <p className="mt-6 text-sm text-muted">
                 After practice, return to{' '}
-                <Link href="/scipol/bandingkan" className="underline">Compare</Link>
+                <Link href="/scipol/compare" className="underline">Compare</Link>
                 {', '}
-                <Link href="/scipol/topik" className="underline">Topic archive</Link>
+                <Link href="/scipol/topics" className="underline">Topic archive</Link>
                 {', or '}
                 <Link href="/scipol/realpolitik" className="underline">REALPOLITIK</Link>
                 {' '}for analysis (REALPOLITIK appears in the sidebar when the plugin is active).

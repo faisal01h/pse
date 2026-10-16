@@ -3,6 +3,7 @@
 use App\Catalog\PageMeta;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\DuplicateController;
+use App\Http\Controllers\Admin\JobMonitorController;
 use App\Http\Controllers\Admin\LlmModelsController;
 use App\Http\Controllers\Admin\NewsRadarController;
 use App\Http\Controllers\Admin\RealPolitikController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\SciPol\HubController as SciPolHubController;
 use App\Http\Controllers\SciPol\IssueController as SciPolIssueController;
 use App\Http\Controllers\SciPol\PracticeController as SciPolPracticeController;
 use App\Http\Controllers\SciPol\RealPolitikController as SciPolRealPolitikController;
+use App\Http\Controllers\SciPol\RelationshipController as SciPolRelationshipController;
 use App\Http\Controllers\SciPol\SuggestController as SciPolSuggestController;
 use App\Http\Controllers\SciPol\TopicController as SciPolTopicController;
 use App\Http\Controllers\SearchController;
@@ -152,24 +154,46 @@ Route::middleware('throttle:catalog')->group(function () {
 
     Route::prefix('scipol')->name('scipol.')->middleware('web.feature:scipol')->group(function () {
         Route::get('/', SciPolHubController::class)->name('hub');
-        Route::get('/bandingkan', SciPolCompareController::class)->name('compare');
-        Route::get('/isu', [SciPolIssueController::class, 'index'])->name('issues.index');
-        Route::get('/isu/{issue}', [SciPolIssueController::class, 'show'])
+        Route::get('/compare', SciPolCompareController::class)->name('compare');
+        Route::get('/relationships', SciPolRelationshipController::class)->name('relationships');
+        Route::get('/issues', [SciPolIssueController::class, 'index'])->name('issues.index');
+        Route::get('/issues/{issue}', [SciPolIssueController::class, 'show'])
             ->where('issue', '[A-Za-z0-9_-]+')
             ->name('issues.show');
-        Route::get('/afiliasi', SciPolAffiliationController::class)->name('affiliations');
-        Route::get('/topik', SciPolTopicController::class)->name('topics');
+        Route::get('/affiliations', SciPolAffiliationController::class)->name('affiliations');
+        Route::get('/topics', SciPolTopicController::class)->name('topics');
         Route::get('/realpolitik', SciPolRealPolitikController::class)->name('realpolitik');
-        Route::get('/latihan', SciPolPracticeController::class)->name('practice');
+        Route::get('/practice', SciPolPracticeController::class)->name('practice');
         Route::get('/suggest', SciPolSuggestController::class)
             ->middleware('throttle:60,1')
             ->name('suggest');
     });
 });
 
-Route::get('/scipol/ekspor', SciPolExportController::class)
+Route::get('/scipol/export', SciPolExportController::class)
     ->middleware(['web.feature:scipol', 'throttle:scipol-export'])
     ->name('scipol.export');
+
+foreach ([
+    '/scipol/bandingkan' => '/scipol/compare',
+    '/scipol/isu' => '/scipol/issues',
+    '/scipol/afiliasi' => '/scipol/affiliations',
+    '/scipol/topik' => '/scipol/topics',
+    '/scipol/latihan' => '/scipol/practice',
+    '/scipol/ekspor' => '/scipol/export',
+] as $from => $to) {
+    Route::get($from, function (\Illuminate\Http\Request $request) use ($to) {
+        $query = $request->getQueryString();
+
+        return redirect($to.($query ? '?'.$query : ''), 301);
+    });
+}
+
+Route::get('/scipol/isu/{issue}', function (\Illuminate\Http\Request $request, string $issue) {
+    $query = $request->getQueryString();
+
+    return redirect('/scipol/issues/'.$issue.($query ? '?'.$query : ''), 301);
+})->where('issue', '[A-Za-z0-9_-]+');
 
 Route::get('/realpolitik', RealPolitikBoardController::class)
     ->middleware('web.feature:realpolitik')
@@ -281,6 +305,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/settings/realpolitik', [SettingsController::class, 'editRealPolitik'])->name('admin.settings.realpolitik');
         Route::post('/admin/settings/realpolitik', [SettingsController::class, 'updateRealPolitik'])->name('admin.settings.realpolitik.update');
         Route::post('/admin/realpolitik/tick', [RealPolitikController::class, 'tick'])->name('admin.realpolitik.tick');
+        Route::get('/admin/settings/jobs', [JobMonitorController::class, 'index'])->name('admin.settings.jobs');
+        Route::post('/admin/settings/jobs/clear-finished', [JobMonitorController::class, 'clearFinished'])->name('admin.settings.jobs.clear');
+        Route::post('/admin/settings/jobs/{jobRun}/retry', [JobMonitorController::class, 'retry'])->name('admin.settings.jobs.retry');
+        Route::delete('/admin/settings/jobs/{jobRun}', [JobMonitorController::class, 'destroy'])->name('admin.settings.jobs.destroy');
         Route::get('/admin/llm/models', [LlmModelsController::class, 'index'])->name('admin.llm.models');
         Route::get('/admin/autovet/models', [LlmModelsController::class, 'index'])->name('admin.autovet.models');
     });

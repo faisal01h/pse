@@ -13,6 +13,7 @@ export default function Board({
     signals = [],
     briefs = [],
     watchlist = [],
+    onlyWatched = false,
     cuiBono = null,
     pollSeconds = 20,
 }) {
@@ -21,12 +22,31 @@ export default function Board({
         watchable_name: '',
     });
 
+    const refresh = () => Inertia.reload({ only: ['signals', 'briefs'], preserveScroll: true, preserveState: true });
+
+    // Live updates when Laravel Echo is configured on the page; polling below is the fallback.
+    useEffect(() => {
+        const echo = typeof window !== 'undefined' ? window.Echo : null;
+        if (!echo) {
+            return undefined;
+        }
+        const channel = echo.channel('realpolitik').listen('.signals.created', refresh);
+        return () => {
+            try {
+                channel.stopListening('.signals.created');
+                echo.leaveChannel('realpolitik');
+            } catch (error) {
+                // channel already closed
+            }
+        };
+    }, []);
+
     useEffect(() => {
         if (!pollSeconds || pollSeconds < 5) {
             return undefined;
         }
         const timer = setInterval(() => {
-            Inertia.reload({ only: ['signals', 'briefs'], preserveScroll: true, preserveState: true });
+            refresh();
         }, pollSeconds * 1000);
         return () => clearInterval(timer);
     }, [pollSeconds]);
@@ -80,9 +100,22 @@ export default function Board({
                 </section>
 
                 <section className="mt-12">
-                    <h2 className="text-2xl font-bold">Sinyal kekuasaan</h2>
+                    <div className="flex flex-wrap items-baseline justify-between gap-3">
+                        <h2 className="text-2xl font-bold">Sinyal kekuasaan</h2>
+                        {auth?.user && watchlist.length > 0 ? (
+                            <Link
+                                href={route('realpolitik.board', onlyWatched ? {} : { watching: 1 })}
+                                className="underline"
+                                preserveScroll
+                            >
+                                {onlyWatched ? 'Tampilkan semua sinyal' : 'Hanya yang saya pantau'}
+                            </Link>
+                        ) : null}
+                    </div>
                     {signals.length === 0 ? (
-                        <p className="mt-3 text-muted">Belum ada sinyal terbuka.</p>
+                        <p className="mt-3 text-muted">
+                            {onlyWatched ? 'Belum ada sinyal untuk item yang Anda pantau.' : 'Belum ada sinyal terbuka.'}
+                        </p>
                     ) : (
                         <ul className="mt-4 divide-y-2 divide-ink/10 border-t-2 border-ink/10">
                             {signals.map((signal) => (
@@ -90,6 +123,9 @@ export default function Board({
                                     <div className="flex flex-wrap items-baseline gap-3">
                                         <Severity value={signal.severity} />
                                         <p className="text-lg font-bold">{signal.title}</p>
+                                        {signal.watched ? (
+                                            <span className="border-2 border-ink px-2 text-sm font-bold">Dipantau</span>
+                                        ) : null}
                                     </div>
                                     {signal.body ? <p className="mt-2 leading-relaxed">{signal.body}</p> : null}
                                     <p className="mt-2 text-sm text-muted">

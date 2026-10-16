@@ -28,7 +28,12 @@ class SignalDetector
         $baselineStart = $now->copy()->subDays($baselineDays);
 
         $windowCounts = $this->countsByPolitician($windowStart, $now);
-        $baselineCounts = $this->countsByPolitician($baselineStart, $windowStart);
+        $baselineCounts = $this->countsByPolitician($baselineStart, $windowStart, false);
+
+        $politicians = Politician::query()
+            ->whereIn('id', array_keys($windowCounts))
+            ->get()
+            ->keyBy('id');
 
         $created = [];
         foreach ($windowCounts as $politicianId => $counts) {
@@ -55,7 +60,7 @@ class SignalDetector
                 continue;
             }
 
-            $politician = Politician::query()->find($politicianId);
+            $politician = $politicians->get($politicianId);
             if (! $politician) {
                 continue;
             }
@@ -97,7 +102,7 @@ class SignalDetector
     /**
      * @return array<int, array{total: int, allegation: int}>
      */
-    private function countsByPolitician(Carbon $from, Carbon $to): array
+    private function countsByPolitician(Carbon $from, Carbon $to, bool $toInclusive = true): array
     {
         $rows = PublicRecord::query()
             ->select([
@@ -108,7 +113,7 @@ class SignalDetector
             ->where('status', PublicRecord::STATUS_PUBLISHED)
             ->whereNotNull('politician_id')
             ->where('created_at', '>=', $from)
-            ->where('created_at', '<=', $to)
+            ->where('created_at', $toInclusive ? '<=' : '<', $to)
             ->groupBy('politician_id')
             ->get();
 

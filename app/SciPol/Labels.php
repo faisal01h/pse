@@ -5,6 +5,8 @@ namespace App\SciPol;
 use App\Models\BusinessAffiliation;
 use App\Models\IdeologyPosition;
 use App\Models\IssueStance;
+use App\Models\PartyLink;
+use App\Models\PoliticianLink;
 use App\Models\PublicRecord;
 
 class Labels
@@ -57,6 +59,41 @@ class Labels
     public static function affiliation(string $type): string
     {
         return self::AFFILIATIONS[$type] ?? $type;
+    }
+
+    public static function politicianLink(string $type, bool $viewerIsSource): string
+    {
+        if ($type === PoliticianLink::TYPE_SUPPORT && ! $viewerIsSource) {
+            return 'Supported by';
+        }
+
+        return match ($type) {
+            PoliticianLink::TYPE_ALLY => 'Ally',
+            PoliticianLink::TYPE_RIVAL => 'Rival',
+            PoliticianLink::TYPE_SUPPORT => 'Supports',
+            default => $type,
+        };
+    }
+
+    public static function partyLink(string $type, bool $viewerIsSource): string
+    {
+        if ($viewerIsSource) {
+            return match ($type) {
+                PartyLink::TYPE_COALITION => 'Coalition',
+                PartyLink::TYPE_OPPOSITION => 'Opposition',
+                PartyLink::TYPE_MERGED_INTO => 'Merged into',
+                PartyLink::TYPE_SPLIT_FROM => 'Split from',
+                default => $type,
+            };
+        }
+
+        return match ($type) {
+            PartyLink::TYPE_MERGED_INTO => 'Merged from',
+            PartyLink::TYPE_SPLIT_FROM => 'Split into',
+            PartyLink::TYPE_COALITION => 'Coalition',
+            PartyLink::TYPE_OPPOSITION => 'Opposition',
+            default => $type,
+        };
     }
 
     /**

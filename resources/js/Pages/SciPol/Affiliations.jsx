@@ -1,48 +1,52 @@
 import { Head } from '@inertiajs/inertia-react';
 import PageLinks from '@/Components/PageLinks';
-import SciPol, { CategoryBadge, ExportButton, SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
+import SciPol, { ExportButton, SciPolNotice, SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
 
-export default function Topik({
+export default function Affiliations({
     items = [],
     meta = {},
     filters = {},
-    topics = [],
-    categories = [],
+    sectors = [],
+    types = [],
     export_url = null,
 }) {
     return (
-        <SciPol title="topics">
-            <Head title="SciPol · Topic archive" />
+        <SciPol title="affiliations">
+            <Head title="SciPol · Affiliations" />
 
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold">Topic archive</h1>
+                    <h1 className="text-2xl font-bold">Affiliation network</h1>
                     <p className="mt-1 text-sm text-muted">
-                        Published records for assignments and case studies.
+                        Published ownership and endorsement ties to businesses.
                     </p>
                 </div>
                 <ExportButton href={export_url} disabled={!export_url} />
             </div>
 
-            <form method="get" action="/scipol/topik" className="mb-4 grid gap-2 border border-ink/15 bg-white p-3 sm:grid-cols-4">
+            <SciPolNotice>
+                Each row includes a source. Filters support political-economy work by sector.
+            </SciPolNotice>
+
+            <form method="get" action="/scipol/affiliations" className="mb-4 grid gap-2 border border-ink/15 bg-white p-3 sm:grid-cols-4">
                 <div>
                     <label htmlFor="q" className="mb-1 block text-[11px] font-bold uppercase text-muted">Search</label>
                     <input id="q" name="q" defaultValue={filters.q || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm" />
                 </div>
                 <div>
-                    <label htmlFor="topic" className="mb-1 block text-[11px] font-bold uppercase text-muted">Topic</label>
-                    <select id="topic" name="topic" defaultValue={filters.topic || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm">
+                    <label htmlFor="sector" className="mb-1 block text-[11px] font-bold uppercase text-muted">Sector</label>
+                    <select id="sector" name="sector" defaultValue={filters.sector || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm">
                         <option value="">All</option>
-                        {topics.map((topic) => (
-                            <option key={topic.id} value={topic.id}>{topic.name}</option>
+                        {sectors.map((sector) => (
+                            <option key={sector} value={sector}>{sector}</option>
                         ))}
                     </select>
                 </div>
                 <div>
-                    <label htmlFor="category" className="mb-1 block text-[11px] font-bold uppercase text-muted">Category</label>
-                    <select id="category" name="category" defaultValue={filters.category || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm">
+                    <label htmlFor="type" className="mb-1 block text-[11px] font-bold uppercase text-muted">Type</label>
+                    <select id="type" name="type" defaultValue={filters.type || ''} className="w-full border border-ink/30 px-2 py-1.5 text-sm">
                         <option value="">All</option>
-                        {categories.map((item) => (
+                        {types.map((item) => (
                             <option key={item.key} value={item.key}>{item.label}</option>
                         ))}
                     </select>
@@ -53,35 +57,33 @@ export default function Topik({
             </form>
 
             {items.length === 0 ? (
-                <p className="text-sm text-muted">No records match.</p>
+                <p className="text-sm text-muted">No affiliations match.</p>
             ) : (
                 <SciPolTable>
                     <thead>
                         <tr>
-                            <SciPolTh>Date</SciPolTh>
-                            <SciPolTh>Category</SciPolTh>
                             <SciPolTh>Politician</SciPolTh>
-                            <SciPolTh>Content</SciPolTh>
-                            <SciPolTh>Topics</SciPolTh>
+                            <SciPolTh>Business</SciPolTh>
+                            <SciPolTh>Sector</SciPolTh>
+                            <SciPolTh>Type</SciPolTh>
+                            <SciPolTh>%</SciPolTh>
+                            <SciPolTh>Reliability</SciPolTh>
                             <SciPolTh>Source</SciPolTh>
                         </tr>
                     </thead>
                     <tbody>
                         {items.map((row) => (
                             <tr key={row.id}>
-                                <SciPolTd className="whitespace-nowrap">{row.date || '—'}</SciPolTd>
-                                <SciPolTd><CategoryBadge category={row.category} /></SciPolTd>
                                 <SciPolTd>
                                     <a href={row.politician.href} className="underline">{row.politician.name}</a>
                                 </SciPolTd>
-                                <SciPolTd className="max-w-md">
-                                    <a href={row.href} className="text-ink no-underline hover:underline">
-                                        {row.quote || row.summary || '—'}
-                                    </a>
+                                <SciPolTd>
+                                    <a href={row.business.href} className="underline">{row.business.name}</a>
                                 </SciPolTd>
-                                <SciPolTd className="text-[12px]">
-                                    {(row.topics || []).map((topic) => topic.name).join(', ') || '—'}
-                                </SciPolTd>
+                                <SciPolTd>{row.business.sector || '—'}</SciPolTd>
+                                <SciPolTd>{row.type_label}</SciPolTd>
+                                <SciPolTd>{row.ownership_percent ?? '—'}</SciPolTd>
+                                <SciPolTd>{row.reliability_level || '—'}</SciPolTd>
                                 <SciPolTd>
                                     {row.source_url ? (
                                         <a href={row.source_url} target="_blank" rel="noreferrer">
@@ -96,12 +98,13 @@ export default function Topik({
             )}
 
             <PageLinks
-                path="/scipol/topik"
+                path="/scipol/affiliations"
                 meta={meta}
                 query={{
                     q: filters.q || '',
-                    topic: filters.topic || '',
-                    category: filters.category || '',
+                    sector: filters.sector || '',
+                    type: filters.type || '',
+                    politician: filters.politician || '',
                 }}
                 labels={{
                     prev: 'Previous',

@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/inertia-react';
 import SciPol, { ExportButton, SciPolNotice, SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
 
-export default function IsuShow({ issue, groups = {}, position_labels = {}, export_url = null }) {
+export default function IssueShow({ issue, groups = {}, position_labels = {}, export_url = null }) {
     const order = ['dukung', 'tolak', 'campuran'];
 
     return (
@@ -9,7 +9,7 @@ export default function IsuShow({ issue, groups = {}, position_labels = {}, expo
             <Head title={`SciPol · ${issue.name}`} />
 
             <p className="mb-2 text-sm">
-                <Link href="/scipol/isu" className="underline">← Issue map</Link>
+                <Link href="/scipol/issues" className="underline">← Issue map</Link>
             </p>
 
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">

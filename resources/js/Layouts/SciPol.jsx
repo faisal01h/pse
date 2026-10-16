@@ -2,11 +2,12 @@ import { Link, usePage } from '@inertiajs/inertia-react';
 
 const BASE_NAV = [
     { href: '/scipol', label: 'Hub', match: (url) => url === '/scipol' || url === '/scipol/' },
-    { href: '/scipol/bandingkan', label: 'Compare', match: (url) => url.startsWith('/scipol/bandingkan') },
-    { href: '/scipol/isu', label: 'Issue map', match: (url) => url.startsWith('/scipol/isu') },
-    { href: '/scipol/afiliasi', label: 'Affiliations', match: (url) => url.startsWith('/scipol/afiliasi') },
-    { href: '/scipol/topik', label: 'Topics', match: (url) => url.startsWith('/scipol/topik') },
-    { href: '/scipol/latihan', label: 'Practice', match: (url) => url.startsWith('/scipol/latihan') },
+    { href: '/scipol/compare', label: 'Compare', match: (url) => url.startsWith('/scipol/compare') },
+    { href: '/scipol/relationships', label: 'Relationship browser', match: (url) => url.startsWith('/scipol/relationships') },
+    { href: '/scipol/issues', label: 'Issue map', match: (url) => url.startsWith('/scipol/issues') },
+    { href: '/scipol/affiliations', label: 'Affiliations', match: (url) => url.startsWith('/scipol/affiliations') },
+    { href: '/scipol/topics', label: 'Topics', match: (url) => url.startsWith('/scipol/topics') },
+    { href: '/scipol/practice', label: 'Practice', match: (url) => url.startsWith('/scipol/practice') },
 ];
 
 const REALPOLITIK_NAV = {
@@ -23,8 +24,9 @@ export default function SciPol({ children, title }) {
         ? [
             BASE_NAV[0],
             BASE_NAV[1],
+            BASE_NAV[2],
             REALPOLITIK_NAV,
-            ...BASE_NAV.slice(2),
+            ...BASE_NAV.slice(3),
         ]
         : BASE_NAV;
 

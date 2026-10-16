@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/inertia-react';
 import SciPol, { SciPolTable, SciPolTd, SciPolTh } from '@/Layouts/SciPol';
 
-export default function Isu({ issues = [] }) {
+export default function Issues({ issues = [] }) {
     return (
         <SciPol title="issue map">
             <Head title="SciPol · Issue map" />

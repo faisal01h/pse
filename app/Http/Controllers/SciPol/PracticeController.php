@@ -10,7 +10,7 @@ class PracticeController extends Controller
 {
     public function __invoke(): Response
     {
-        return Inertia::render('SciPol/Latihan', [
+        return Inertia::render('SciPol/Practice', [
             'report_url' => route('reports.create'),
             'track_url' => route('reports.track'),
             'dispute_url' => route('dispute.create'),

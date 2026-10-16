@@ -24,21 +24,23 @@ class BoardController extends Controller
     {
         abort_unless($this->plugins->isEnabled('realpolitik'), 404);
 
-        $watchlist = [];
-        if ($request->user()) {
-            $watchlist = WatchlistItem::query()
+        $items = $request->user()
+            ? WatchlistItem::query()
                 ->where('user_id', $request->user()->id)
                 ->with('watchable')
                 ->orderByDesc('id')
                 ->get()
-                ->map(fn (WatchlistItem $item) => [
-                    'id' => $item->id,
-                    'watchable_type' => $item->watchable_type,
-                    'watchable_id' => $item->watchable_id,
-                    'watchable_name' => $item->watchable?->name,
-                ])
-                ->all();
-        }
+            : null;
+
+        $watchlist = $items === null ? [] : $items
+            ->map(fn (WatchlistItem $item) => [
+                'id' => $item->id,
+                'watchable_type' => $item->watchable_type,
+                'watchable_id' => $item->watchable_id,
+                'watchable_name' => $item->watchable?->name,
+            ])
+            ->all();
+        $onlyWatched = $items !== null && $items->isNotEmpty() && $request->boolean('watching');
 
         $cuiBono = null;
         $recordId = $request->integer('record_id');
@@ -53,9 +55,10 @@ class BoardController extends Controller
         }
 
         return Inertia::render('RealPolitik/Board', [
-            'signals' => $this->service->presentSignals(),
+            'signals' => $this->service->presentSignals(40, $items, $onlyWatched),
             'briefs' => $this->service->presentBriefs(),
             'watchlist' => $watchlist,
+            'onlyWatched' => $onlyWatched,
             'cuiBono' => $cuiBono,
             'pollSeconds' => 20,
             'pluginEnabled' => true,

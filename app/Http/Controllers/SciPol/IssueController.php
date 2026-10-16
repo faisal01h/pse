@@ -13,7 +13,7 @@ class IssueController extends Controller
 {
     public function index(Workspace $workspace): Response
     {
-        return Inertia::render('SciPol/Isu', [
+        return Inertia::render('SciPol/Issues', [
             'issues' => $workspace->issues(),
         ]);
     }
@@ -25,7 +25,7 @@ class IssueController extends Controller
         $model = Issue::query()->findOrFail($id);
         $map = $workspace->issueMap($model);
 
-        return Inertia::render('SciPol/IsuShow', [
+        return Inertia::render('SciPol/IssueShow', [
             ...$map,
             'export_url' => route('scipol.export', [
                 'scope' => 'issue',

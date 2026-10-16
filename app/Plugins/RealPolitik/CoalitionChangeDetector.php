@@ -15,11 +15,11 @@ class CoalitionChangeDetector
     /**
      * @return list<PowerSignal>
      */
-    public function detect(?Carbon $now = null): array
+    public function detect(?Carbon $now = null, ?Carbon $since = null): array
     {
         $now ??= now();
         $windowHours = max(1, $this->settings->getInt('realpolitik.window_hours', 24));
-        $since = $now->copy()->subHours($windowHours);
+        $since ??= $now->copy()->subHours($windowHours);
         $created = [];
 
         $partyLinks = PartyLink::query()
@@ -31,12 +31,11 @@ class CoalitionChangeDetector
                     });
             })
             ->with(['partyA:id,name', 'partyB:id,name'])
-            ->orderByDesc('id')
-            ->limit(50)
+            ->orderBy('id')
             ->get();
 
         foreach ($partyLinks as $link) {
-            $created[] = $this->signalForPartyLink($link, $since);
+            $created[] = $this->signalForPartyLink($link);
         }
 
         $politicianLinks = PoliticianLink::query()
@@ -48,22 +47,21 @@ class CoalitionChangeDetector
                     });
             })
             ->with(['politicianA:id,name', 'politicianB:id,name'])
-            ->orderByDesc('id')
-            ->limit(50)
+            ->orderBy('id')
             ->get();
 
         foreach ($politicianLinks as $link) {
-            $created[] = $this->signalForPoliticianLink($link, $since);
+            $created[] = $this->signalForPoliticianLink($link);
         }
 
         return array_values(array_filter($created));
     }
 
-    private function signalForPartyLink(PartyLink $link, Carbon $since): ?PowerSignal
+    private function signalForPartyLink(PartyLink $link): ?PowerSignal
     {
         $ended = $link->ended_at !== null;
         $fingerprint = 'party-'.$link->id.'-'.($ended ? 'end' : 'open');
-        if ($this->seen($fingerprint, $since)) {
+        if ($this->seen($fingerprint)) {
             return null;
         }
 
@@ -89,16 +87,17 @@ class CoalitionChangeDetector
             ),
             'evidence' => [
                 'party_link_id' => $link->id,
+                'party_ids' => [$link->party_a_id, $link->party_b_id],
                 'fingerprint' => $fingerprint,
             ],
         ]);
     }
 
-    private function signalForPoliticianLink(PoliticianLink $link, Carbon $since): ?PowerSignal
+    private function signalForPoliticianLink(PoliticianLink $link): ?PowerSignal
     {
         $ended = $link->ended_at !== null;
         $fingerprint = 'pol-'.$link->id.'-'.($ended ? 'end' : 'open');
-        if ($this->seen($fingerprint, $since)) {
+        if ($this->seen($fingerprint)) {
             return null;
         }
 
@@ -122,16 +121,16 @@ class CoalitionChangeDetector
             ),
             'evidence' => [
                 'politician_link_id' => $link->id,
+                'politician_ids' => [$link->politician_a_id, $link->politician_b_id],
                 'fingerprint' => $fingerprint,
             ],
         ]);
     }
 
-    private function seen(string $fingerprint, Carbon $since): bool
+    private function seen(string $fingerprint): bool
     {
         return PowerSignal::query()
             ->where('type', PowerSignal::TYPE_COALITION_CHANGE)
-            ->where('created_at', '>=', $since)
             ->where('evidence->fingerprint', $fingerprint)
             ->exists();
     }
