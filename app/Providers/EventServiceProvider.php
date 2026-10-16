@@ -2,9 +2,14 @@
 
 namespace App\Providers;
 
+use App\Queue\JobRunRecorder;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Events\JobQueued;
 use Illuminate\Support\Facades\Event;
 
 class EventServiceProvider extends ServiceProvider
@@ -17,6 +22,18 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         Registered::class => [
             SendEmailVerificationNotification::class,
+        ],
+        JobQueued::class => [
+            [JobRunRecorder::class, 'queued'],
+        ],
+        JobProcessing::class => [
+            [JobRunRecorder::class, 'processing'],
+        ],
+        JobProcessed::class => [
+            [JobRunRecorder::class, 'processed'],
+        ],
+        JobFailed::class => [
+            [JobRunRecorder::class, 'failed'],
         ],
     ];
 

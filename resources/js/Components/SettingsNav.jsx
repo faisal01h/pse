@@ -6,6 +6,7 @@ const items = [
     { label: 'AutoVet', route: 'admin.settings.autovet' },
     { label: 'NewsRadar', route: 'admin.settings.newsradar' },
     { label: 'REALPOLITIK', route: 'admin.settings.realpolitik' },
+    { label: 'Job Monitor', route: 'admin.settings.jobs' },
 ];
 
 export default function SettingsNav() {
