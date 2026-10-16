@@ -1,13 +1,26 @@
 import Authenticated from '@/Layouts/Authenticated';
+import HeadlessBrowserModal from '@/Components/HeadlessBrowserModal';
 import SettingsNav from '@/Components/SettingsNav';
 import ValidationErrors from '@/Components/ValidationErrors';
 import { Inertia } from '@inertiajs/inertia';
 import { Head, useForm, usePage } from '@inertiajs/inertia-react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+
+function xsrfToken() {
+    const cookie = document.cookie.split('; ').find((row) => row.startsWith('XSRF-TOKEN='));
+
+    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+}
 
 export default function NewsRadar({ auth, settings, llmReady }) {
     const { flash } = usePage().props;
     const [hunting, setHunting] = useState(false);
+    const [testUrl, setTestUrl] = useState('');
+    const [testing, setTesting] = useState(false);
+    const [testModalOpen, setTestModalOpen] = useState(false);
+    const [testResult, setTestResult] = useState(null);
+    const [testError, setTestError] = useState(null);
+    const [testedUrl, setTestedUrl] = useState('');
     const { data, setData, post, processing, errors } = useForm({
         newsradar_enabled: Boolean(settings.newsradar_enabled),
         newsradar_feeds: settings.newsradar_feeds || '',
@@ -29,6 +42,44 @@ export default function NewsRadar({ auth, settings, llmReady }) {
             preserveScroll: true,
             onFinish: () => setHunting(false),
         });
+    }
+
+    const closeTestModal = useCallback(() => setTestModalOpen(false), []);
+
+    async function runBrowserTest(event) {
+        event.preventDefault();
+        const url = testUrl.trim();
+
+        setTestedUrl(url);
+        setTestResult(null);
+        setTestError(null);
+        setTestModalOpen(true);
+        setTesting(true);
+
+        try {
+            const response = await fetch(route('admin.newsradar.browser-test'), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN': xsrfToken(),
+                },
+                body: JSON.stringify({ url }),
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok || !payload.ok) {
+                setTestError(payload.message || payload.errors?.url?.[0] || 'Tes headless browser gagal.');
+            } else {
+                setTestResult(payload);
+            }
+        } catch (e) {
+            setTestError('Tidak dapat menghubungi server. Coba lagi.');
+        } finally {
+            setTesting(false);
+        }
     }
 
     return (
@@ -136,6 +187,38 @@ export default function NewsRadar({ auth, settings, llmReady }) {
                     Simpan pengaturan NewsRadar
                 </button>
             </form>
+
+            <section className="mt-12 max-w-2xl border-2 border-ink p-4">
+                <h2 className="text-2xl font-bold">Tes headless browser</h2>
+                <p className="mt-2 text-muted">
+                    Buka URL dengan headless browser (Playwright) untuk memastikan halaman bisa dirender sebelum NewsRadar membacanya.
+                </p>
+                <form onSubmit={runBrowserTest} className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <label htmlFor="browser_test_url" className="sr-only">URL yang akan diuji</label>
+                    <input
+                        id="browser_test_url"
+                        type="url"
+                        required
+                        maxLength={2048}
+                        className="gov-input flex-1"
+                        placeholder="https://example.com/berita"
+                        value={testUrl}
+                        onChange={(event) => setTestUrl(event.target.value)}
+                    />
+                    <button type="submit" className="gov-button" disabled={testing || testUrl.trim() === ''}>
+                        {testing ? 'Menguji…' : 'Uji URL'}
+                    </button>
+                </form>
+            </section>
+
+            <HeadlessBrowserModal
+                open={testModalOpen}
+                onClose={closeTestModal}
+                loading={testing}
+                result={testResult}
+                error={testError}
+                url={testedUrl}
+            />
         </Authenticated>
     );
 }

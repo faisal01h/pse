@@ -276,6 +276,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/settings/newsradar', [SettingsController::class, 'editNewsRadar'])->name('admin.settings.newsradar');
         Route::post('/admin/settings/newsradar', [SettingsController::class, 'updateNewsRadar'])->name('admin.settings.newsradar.update');
         Route::post('/admin/newsradar/hunt', [NewsRadarController::class, 'hunt'])->name('admin.newsradar.hunt');
+        Route::post('/admin/newsradar/browser-test', [NewsRadarController::class, 'browserTest'])->name('admin.newsradar.browser-test');
         Route::get('/admin/settings/realpolitik', [SettingsController::class, 'editRealPolitik'])->name('admin.settings.realpolitik');
         Route::post('/admin/settings/realpolitik', [SettingsController::class, 'updateRealPolitik'])->name('admin.settings.realpolitik.update');
         Route::post('/admin/realpolitik/tick', [RealPolitikController::class, 'tick'])->name('admin.realpolitik.tick');

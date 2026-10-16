@@ -18,7 +18,7 @@ export default function Board({
 }) {
     const watchForm = useForm({
         watchable_type: 'politician',
-        watchable_id: '',
+        watchable_name: '',
     });
 
     useEffect(() => {
@@ -35,7 +35,7 @@ export default function Board({
         event.preventDefault();
         watchForm.post(route('realpolitik.watchlist.store'), {
             preserveScroll: true,
-            onSuccess: () => watchForm.reset('watchable_id'),
+            onSuccess: () => watchForm.reset('watchable_name'),
         });
     };
 
@@ -206,14 +206,19 @@ export default function Board({
                                 <option value="party">Partai</option>
                                 <option value="topic">Topik</option>
                             </select>
-                            <input
-                                className="gov-input"
-                                type="number"
-                                min="1"
-                                placeholder="ID"
-                                value={watchForm.data.watchable_id}
-                                onChange={(event) => watchForm.setData('watchable_id', event.target.value)}
-                            />
+                            <div className="flex flex-col gap-1">
+                                <input
+                                    className="gov-input"
+                                    type="text"
+                                    maxLength={255}
+                                    placeholder="Nama politisi, partai, atau topik"
+                                    value={watchForm.data.watchable_name}
+                                    onChange={(event) => watchForm.setData('watchable_name', event.target.value)}
+                                />
+                                {watchForm.errors.watchable_name ? (
+                                    <p className="text-sm text-red-700">{watchForm.errors.watchable_name}</p>
+                                ) : null}
+                            </div>
                             <button className="gov-button" disabled={watchForm.processing}>Tambah</button>
                         </form>
                         {watchlist.length > 0 ? (
@@ -221,7 +226,8 @@ export default function Board({
                                 {watchlist.map((item) => (
                                     <li key={item.id} className="flex items-center justify-between border-b border-ink/15 py-2">
                                         <span>
-                                            {item.watchable_type} #{item.watchable_id}
+                                            {item.watchable_name ?? `${item.watchable_type} #${item.watchable_id}`}
+                                            <span className="ml-2 text-sm text-muted">{item.watchable_type}</span>
                                         </span>
                                         <Link
                                             href={route('realpolitik.watchlist.destroy', item.id)}

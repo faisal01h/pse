@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\PublicRecord;
 use App\Models\Topic;
+use App\Plugins\NewsRadar\HeadlessArticleReader;
 use App\Plugins\NewsRadar\Jobs\NewsRadarHuntJob;
 use App\Plugins\NewsRadar\Jobs\NewsRadarItemJob;
 use App\Plugins\NewsRadar\Models\NewsRadarSighting;
@@ -176,6 +177,8 @@ XML;
             ], 200),
         ]);
 
+        $this->fakeReader(fn () => ['title' => 'Olahraga', 'text' => 'Tim nasional menang tadi malam.']);
+
         app(NewsRadarHunter::class)->process($sighting);
 
         $this->assertSame(NewsRadarSighting::STATUS_SKIPPED, $sighting->fresh()->status);
@@ -196,48 +199,19 @@ XML;
             'status' => NewsRadarSighting::STATUS_PENDING,
         ]);
 
+        $this->fakeReader(fn () => [
+            'title' => 'Pernyataan menteri',
+            'text' => 'Menteri A berkata: "Kami siap bertindak." Pernyataan itu disampaikan Senin.',
+        ]);
         Http::fake([
-            'news.example.com/submit' => Http::response('<html><body>Menteri berkata ya.</body></html>', 200),
-            'api.openai.com/*' => Http::sequence()
-                ->push([
-                    'choices' => [[
-                        'message' => [
-                            'role' => 'assistant',
-                            'tool_calls' => [[
-                                'id' => 'call_fetch',
-                                'type' => 'function',
-                                'function' => [
-                                    'name' => 'fetch_url',
-                                    'arguments' => json_encode(['url' => 'https://news.example.com/submit']),
-                                ],
-                            ]],
-                        ],
-                    ]],
-                    'usage' => ['total_tokens' => 5],
-                ])
-                ->push([
-                    'choices' => [[
-                        'message' => [
-                            'role' => 'assistant',
-                            'tool_calls' => [[
-                                'id' => 'call_submit',
-                                'type' => 'function',
-                                'function' => [
-                                    'name' => 'submit_news_item',
-                                    'arguments' => json_encode([
-                                        'skip' => false,
-                                        'politician_name' => 'Budi Radar',
-                                        'position' => 'Menteri',
-                                        'institution' => 'Kementerian A',
-                                        'category' => 'statement',
-                                        'quote' => 'Kami siap bertindak.',
-                                    ]),
-                                ],
-                            ]],
-                        ],
-                    ]],
-                    'usage' => ['total_tokens' => 8],
-                ]),
+            'api.openai.com/*' => $this->submitResponse([
+                'skip' => false,
+                'politician_name' => 'Budi Radar',
+                'position' => 'Menteri',
+                'institution' => 'Kementerian A',
+                'category' => 'statement',
+                'quote' => 'Kami siap bertindak.',
+            ]),
         ]);
 
         app(NewsRadarHunter::class)->process($sighting);
@@ -247,6 +221,119 @@ XML;
         $this->assertNotNull($sighting->public_record_id);
         $this->assertSame(1, PublicRecord::query()->count());
         $this->assertSame('Budi Radar', PublicRecord::query()->first()->politician->name);
+        $this->assertSame('Kami siap bertindak.', PublicRecord::query()->first()->quote);
+    }
+
+    public function test_hunter_rejects_quote_that_is_not_verbatim_in_article(): void
+    {
+        $this->enableNewsRadar();
+        $sighting = $this->makeSighting('verbatim-1');
+
+        $this->fakeReader(fn () => [
+            'title' => 'Pernyataan menteri',
+            'text' => 'Menteri A berkata: "Kami siap bertindak." Itu saja.',
+        ]);
+        Http::fake([
+            'api.openai.com/*' => $this->submitResponse([
+                'skip' => false,
+                'politician_name' => 'Budi Radar',
+                'category' => 'statement',
+                'quote' => 'Kami siap untuk bertindak.',
+            ]),
+        ]);
+
+        app(NewsRadarHunter::class)->process($sighting);
+
+        $sighting->refresh();
+        $this->assertSame(NewsRadarSighting::STATUS_FAILED, $sighting->status);
+        $this->assertStringContainsString('tidak cocok persis', (string) $sighting->note);
+        $this->assertSame(0, PublicRecord::query()->count());
+    }
+
+    public function test_hunter_rejects_statement_without_direct_quote(): void
+    {
+        $this->enableNewsRadar();
+        $sighting = $this->makeSighting('noquote-1');
+
+        $this->fakeReader(fn () => ['title' => 'Berita', 'text' => 'Menteri A dikabarkan akan mundur.']);
+        Http::fake([
+            'api.openai.com/*' => $this->submitResponse([
+                'skip' => false,
+                'politician_name' => 'Budi Radar',
+                'category' => 'statement',
+                'summary' => 'Dikabarkan akan mundur.',
+            ]),
+        ]);
+
+        app(NewsRadarHunter::class)->process($sighting);
+
+        $sighting->refresh();
+        $this->assertSame(NewsRadarSighting::STATUS_FAILED, $sighting->status);
+        $this->assertSame(0, PublicRecord::query()->count());
+    }
+
+    public function test_hunter_fails_instead_of_summarizing_when_headless_read_fails(): void
+    {
+        $this->enableNewsRadar();
+        $sighting = $this->makeSighting('render-1');
+
+        $this->fakeReader(function () {
+            throw new \RuntimeException('Headless browser gagal membaca artikel: timeout');
+        });
+        Http::fake();
+
+        app(NewsRadarHunter::class)->process($sighting);
+
+        $sighting->refresh();
+        $this->assertSame(NewsRadarSighting::STATUS_FAILED, $sighting->status);
+        $this->assertStringContainsString('Headless browser', (string) $sighting->note);
+        Http::assertNothingSent();
+    }
+
+    public function test_admin_browser_test_returns_screenshot_for_valid_url(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->app->instance(HeadlessArticleReader::class, new class extends HeadlessArticleReader {
+            public function probe(string $articleUrl): array
+            {
+                return [
+                    'final_url' => 'https://news.example.com/final',
+                    'title' => 'Uji',
+                    'text_length' => 42,
+                    'excerpt' => 'Contoh teks',
+                    'screenshot' => 'data:image/jpeg;base64,AAAA',
+                ];
+            }
+        });
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.newsradar.browser-test'), ['url' => 'https://news.example.com/story'])
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('title', 'Uji')
+            ->assertJsonPath('text_length', 42)
+            ->assertJsonPath('screenshot', 'data:image/jpeg;base64,AAAA');
+    }
+
+    public function test_admin_browser_test_reports_render_failure_and_rejects_bad_url(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->app->instance(HeadlessArticleReader::class, new class extends HeadlessArticleReader {
+            public function probe(string $articleUrl): array
+            {
+                throw new \RuntimeException('Headless browser gagal membuka halaman: HTTP 503');
+            }
+        });
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.newsradar.browser-test'), ['url' => 'https://news.example.com/down'])
+            ->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('message', 'Headless browser gagal membuka halaman: HTTP 503');
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.newsradar.browser-test'), ['url' => 'not a url'])
+            ->assertStatus(422);
     }
 
     public function test_settings_persist_newsradar_feeds_and_frequency(): void
@@ -348,6 +435,56 @@ XML, 200),
             ->post(route('admin.newsradar.hunt'))
             ->assertRedirect(route('admin.settings.edit'))
             ->assertSessionHasErrors('newsradar');
+    }
+
+    /**
+     * @param  \Closure(string): array{title: string, text: string}  $read
+     */
+    private function fakeReader(\Closure $read): void
+    {
+        $this->app->instance(HeadlessArticleReader::class, new class($read) extends HeadlessArticleReader {
+            public function __construct(private \Closure $read) {}
+
+            public function read(string $articleUrl): array
+            {
+                return ($this->read)($articleUrl);
+            }
+        });
+    }
+
+    private function makeSighting(string $guid): NewsRadarSighting
+    {
+        return NewsRadarSighting::query()->create([
+            'feed_url' => 'https://news.example.com/rss',
+            'feed_url_hash' => hash('sha256', 'https://news.example.com/rss'),
+            'guid' => $guid,
+            'link' => 'https://news.example.com/'.$guid,
+            'title' => 'Berita uji',
+            'status' => NewsRadarSighting::STATUS_PENDING,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $arguments
+     */
+    private function submitResponse(array $arguments)
+    {
+        return Http::response([
+            'choices' => [[
+                'message' => [
+                    'role' => 'assistant',
+                    'tool_calls' => [[
+                        'id' => 'call_submit',
+                        'type' => 'function',
+                        'function' => [
+                            'name' => 'submit_news_item',
+                            'arguments' => json_encode($arguments),
+                        ],
+                    ]],
+                ],
+            ]],
+            'usage' => ['total_tokens' => 8],
+        ], 200);
     }
 
     private function enableNewsRadar(): void
