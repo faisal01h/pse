@@ -172,10 +172,16 @@ class ReportInferenceTest extends TestCase
             'source_type' => 'Pidato',
         ])->assertRedirect();
 
+        // A manual write supersedes: the averaged reading is closed, a fresh interval opens.
         $position->refresh();
-        $this->assertSame(10, $position->score);
-        $this->assertSame(1, $position->samples);
-        $this->assertSame(0, $position->basisRecords()->count());
+        $this->assertSame(67, $position->score);
+        $this->assertNotNull($position->ended_at);
+
+        $current = IdeologyPosition::query()->where('axis', 'ekonomi')->open()->first();
+        $this->assertNotSame($position->id, $current->id);
+        $this->assertSame(10, $current->score);
+        $this->assertSame(1, $current->samples);
+        $this->assertSame(0, $current->basisRecords()->count());
     }
 
     public function test_the_laya_driver_proposes_from_typed_answers(): void
