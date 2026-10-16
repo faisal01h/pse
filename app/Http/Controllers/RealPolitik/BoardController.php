@@ -28,12 +28,14 @@ class BoardController extends Controller
         if ($request->user()) {
             $watchlist = WatchlistItem::query()
                 ->where('user_id', $request->user()->id)
+                ->with('watchable')
                 ->orderByDesc('id')
                 ->get()
                 ->map(fn (WatchlistItem $item) => [
                     'id' => $item->id,
                     'watchable_type' => $item->watchable_type,
                     'watchable_id' => $item->watchable_id,
+                    'watchable_name' => $item->watchable?->name,
                 ])
                 ->all();
         }

@@ -121,7 +121,7 @@ class RealPolitikTest extends TestCase
         $this->actingAs($user)
             ->post(route('realpolitik.watchlist.store'), [
                 'watchable_type' => 'politician',
-                'watchable_id' => $politician->id,
+                'watchable_name' => 'budi santoso',
             ])
             ->assertRedirect();
 
@@ -129,6 +129,41 @@ class RealPolitikTest extends TestCase
             'user_id' => $user->id,
             'watchable_id' => $politician->id,
         ]);
+    }
+
+    public function test_watchlist_rejects_unknown_or_ambiguous_names(): void
+    {
+        $settings = app(SettingsRepository::class);
+        $settings->setMany([
+            'realpolitik.enabled' => true,
+            'web.realpolitik_enabled' => true,
+        ]);
+
+        $user = User::factory()->create();
+        foreach (['Sari', 'Sari'] as $name) {
+            Politician::create([
+                'name' => $name,
+                'position' => 'Anggota',
+                'institution' => 'DPR',
+                'status' => 1,
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->post(route('realpolitik.watchlist.store'), [
+                'watchable_type' => 'politician',
+                'watchable_name' => 'Tidak Ada',
+            ])
+            ->assertSessionHasErrors('watchable_name');
+
+        $this->actingAs($user)
+            ->post(route('realpolitik.watchlist.store'), [
+                'watchable_type' => 'politician',
+                'watchable_name' => 'Sari',
+            ])
+            ->assertSessionHasErrors('watchable_name');
+
+        $this->assertDatabaseCount('realpolitik_watchlists', 0);
     }
 
     public function test_tick_detects_stance_drift_and_cui_bono_uses_as_of_links(): void

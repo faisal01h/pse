@@ -2,6 +2,7 @@
 
 namespace App\Plugins\NewsRadar;
 
+use App\Models\PublicRecord;
 use App\Plugins\Llm\LlmService;
 use App\Plugins\NewsRadar\Models\NewsRadarSighting;
 use App\Settings\SettingsRepository;
@@ -15,6 +16,7 @@ class NewsRadarHunter
         private SettingsRepository $settings,
         private SubmissionFactory $submissions,
         private ArticleTools $tools,
+        private HeadlessArticleReader $reader,
     ) {}
 
     public function process(NewsRadarSighting $sighting): NewsRadarSighting
@@ -34,15 +36,18 @@ class NewsRadarHunter
                 throw new RuntimeException('LLM is not configured.');
             }
 
+            // Always read the full article in a headless browser. No summary or excerpt fallback.
+            $article = $this->reader->read($articleUrl);
+
             $maxSteps = $this->settings->getInt('llm.max_steps', 12);
             $runner = $this->llm->makeAgentRunner($maxSteps, 0);
             $tools = $this->tools;
 
             $outcome = $runner->run(
                 $this->systemPrompt(),
-                $this->userPrompt($sighting, $articleUrl),
+                $this->userPrompt($sighting, $articleUrl, $article),
                 fn () => $tools->definitions(),
-                fn (string $name, array $args) => $tools->execute($name, $args, $articleUrl),
+                fn (string $name, array $args) => $tools->execute($name, $args),
             );
 
             $result = $outcome['result'] ?? null;
@@ -58,6 +63,8 @@ class NewsRadarHunter
 
                 return $sighting->fresh();
             }
+
+            $this->assertVerbatimQuote($result, $article['text']);
 
             $record = $this->submissions->createFromAgent($result, $articleUrl);
             $sighting->fill([
@@ -75,23 +82,63 @@ class NewsRadarHunter
         return $sighting->fresh();
     }
 
+    /**
+     * A public statement must carry a direct quote, and that quote must appear
+     * in the rendered article exactly as written (only whitespace is normalized).
+     *
+     * @param  array<string, mixed>  $result
+     */
+    private function assertVerbatimQuote(array $result, string $articleText): void
+    {
+        $rawCategory = (string) ($result['category'] ?? '');
+        $category = in_array($rawCategory, PublicRecord::CATEGORIES, true)
+            ? $rawCategory
+            : PublicRecord::CATEGORY_STATEMENT;
+        $quote = trim((string) ($result['quote'] ?? ''));
+
+        if ($category === PublicRecord::CATEGORY_STATEMENT && $quote === '') {
+            throw new RuntimeException('Pernyataan publik perlu kutipan langsung dari artikel, tetapi tidak ada kutipan.');
+        }
+
+        if ($quote === '') {
+            return;
+        }
+
+        if (! str_contains($this->collapseWhitespace($articleText), $this->collapseWhitespace($quote))) {
+            throw new RuntimeException('Kutipan tidak cocok persis dengan teks artikel; ditolak agar kata-katanya tidak berubah.');
+        }
+    }
+
+    private function collapseWhitespace(string $text): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+    }
+
     private function systemPrompt(): string
     {
         return <<<'PROMPT'
 You are NewsRadar for PolitiSEE, an Indonesian political archive.
-Read the news article with fetch_url, then decide whether it concerns a public figure / politician / official worth archiving.
-If relevant, extract: politician_name, optional position/institution, category (statement|allegation|conviction), quote and/or summary, optional occurred_on (YYYY-MM-DD).
+The full text of the news article was rendered in a headless browser and is provided in the user message as article_text. Read all of it. Do not decide from the title or an excerpt, and do not ask for more pages.
+Decide whether the article concerns a public figure / politician / official worth archiving.
 If not relevant, call submit_news_item with skip=true and a short skip_reason in Indonesian.
-Always finish with submit_news_item. Prefer Indonesian for quote/summary text when the source is Indonesian.
+If relevant, extract: politician_name, optional position/institution, category (statement|allegation|conviction), quote and/or summary, optional occurred_on (YYYY-MM-DD).
+If the article reports a public statement by the person, you MUST put it in quote as a direct quote copied character-for-character from article_text. Keep the original language, spelling, capitalization, punctuation and wording exactly. Do not translate, paraphrase, shorten, correct, or add ellipses. If no direct quote from the person appears in article_text, do not use the statement category.
+Write the summary in Indonesian.
+Always finish with submit_news_item.
 PROMPT;
     }
 
-    private function userPrompt(NewsRadarSighting $sighting, string $articleUrl): string
+    /**
+     * @param  array{title: string, text: string}  $article
+     */
+    private function userPrompt(NewsRadarSighting $sighting, string $articleUrl, array $article): string
     {
         return json_encode([
             'title' => $sighting->title,
             'article_url' => $articleUrl,
             'feed_url' => $sighting->feed_url,
+            'article_title' => $article['title'],
+            'article_text' => $article['text'],
         ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) ?: $articleUrl;
     }
 }

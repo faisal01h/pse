@@ -11,6 +11,7 @@ use App\Plugins\RealPolitik\Models\WatchlistItem;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class WatchlistController extends Controller
 {
@@ -22,7 +23,7 @@ class WatchlistController extends Controller
 
         $validated = $request->validate([
             'watchable_type' => ['required', Rule::in(['politician', 'party', 'topic'])],
-            'watchable_id' => 'required|integer|min:1',
+            'watchable_name' => 'required|string|max:255',
         ]);
 
         $type = match ($validated['watchable_type']) {
@@ -31,12 +32,28 @@ class WatchlistController extends Controller
             'topic' => Topic::class,
         };
 
-        abort_unless($type::query()->whereKey($validated['watchable_id'])->exists(), 404);
+        $name = trim($validated['watchable_name']);
+        $matches = $type::query()
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+            ->limit(2)
+            ->get();
+
+        if ($matches->isEmpty()) {
+            throw ValidationException::withMessages([
+                'watchable_name' => 'Nama tidak ditemukan. Periksa ejaan atau jenis yang dipilih.',
+            ]);
+        }
+
+        if ($matches->count() > 1) {
+            throw ValidationException::withMessages([
+                'watchable_name' => 'Ada lebih dari satu data dengan nama tersebut.',
+            ]);
+        }
 
         WatchlistItem::query()->firstOrCreate([
             'user_id' => $request->user()->id,
             'watchable_type' => $type,
-            'watchable_id' => $validated['watchable_id'],
+            'watchable_id' => $matches->first()->getKey(),
         ]);
 
         return back();
