@@ -28,6 +28,11 @@ class WebFeatures
         return $this->flag('web.scipol_enabled', true);
     }
 
+    public function realpolitikEnabled(): bool
+    {
+        return $this->flag('web.realpolitik_enabled', false);
+    }
+
     public function turnstileEnabled(): bool
     {
         return $this->flag('web.turnstile_enabled', true);
@@ -44,6 +49,7 @@ class WebFeatures
      *     tracking: bool,
      *     disputes: bool,
      *     scipol: bool,
+     *     realpolitik: bool,
      *     turnstile: bool
      * }
      */
@@ -54,6 +60,7 @@ class WebFeatures
             'tracking' => $this->trackingEnabled(),
             'disputes' => $this->disputesEnabled(),
             'scipol' => $this->scipolEnabled(),
+            'realpolitik' => $this->realpolitikEnabled(),
             'turnstile' => $this->turnstileEnabled(),
         ];
     }
@@ -65,6 +72,7 @@ class WebFeatures
             'tracking' => $this->trackingEnabled(),
             'disputes' => $this->disputesEnabled(),
             'scipol' => $this->scipolEnabled(),
+            'realpolitik' => $this->realpolitikEnabled(),
             'turnstile' => $this->turnstileEnabled(),
             default => false,
         };

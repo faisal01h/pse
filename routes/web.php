@@ -4,6 +4,7 @@ use App\Catalog\PageMeta;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\LlmModelsController;
 use App\Http\Controllers\Admin\NewsRadarController;
+use App\Http\Controllers\Admin\RealPolitikController;
 use App\Http\Controllers\Admin\BusinessAdminController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Admin\PartyController;
@@ -30,9 +31,12 @@ use App\Http\Controllers\SciPol\ExportController as SciPolExportController;
 use App\Http\Controllers\SciPol\HubController as SciPolHubController;
 use App\Http\Controllers\SciPol\IssueController as SciPolIssueController;
 use App\Http\Controllers\SciPol\PracticeController as SciPolPracticeController;
+use App\Http\Controllers\SciPol\RealPolitikController as SciPolRealPolitikController;
 use App\Http\Controllers\SciPol\SuggestController as SciPolSuggestController;
 use App\Http\Controllers\SciPol\TopicController as SciPolTopicController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\RealPolitik\BoardController as RealPolitikBoardController;
+use App\Http\Controllers\RealPolitik\WatchlistController as RealPolitikWatchlistController;
 use App\Http\Controllers\SubmissionTrackingController;
 use App\Inference\ProposalQueue;
 use App\Models\Business;
@@ -154,6 +158,7 @@ Route::middleware('throttle:catalog')->group(function () {
             ->name('issues.show');
         Route::get('/afiliasi', SciPolAffiliationController::class)->name('affiliations');
         Route::get('/topik', SciPolTopicController::class)->name('topics');
+        Route::get('/realpolitik', SciPolRealPolitikController::class)->name('realpolitik');
         Route::get('/latihan', SciPolPracticeController::class)->name('practice');
         Route::get('/suggest', SciPolSuggestController::class)
             ->middleware('throttle:60,1')
@@ -164,6 +169,10 @@ Route::middleware('throttle:catalog')->group(function () {
 Route::get('/scipol/ekspor', SciPolExportController::class)
     ->middleware(['web.feature:scipol', 'throttle:scipol-export'])
     ->name('scipol.export');
+
+Route::get('/realpolitik', RealPolitikBoardController::class)
+    ->middleware('web.feature:realpolitik')
+    ->name('realpolitik.board');
 
 Route::get('/search', SearchController::class)->middleware('throttle:search')->name('search');
 
@@ -245,7 +254,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::post('/reviews/{record}/autovet', [AutoVetController::class, 'runRecord'])->name('reports.autovet');
         Route::post('/reviews/affiliations/{affiliation}/autovet', [AutoVetController::class, 'runAffiliation'])->name('affiliations.autovet');
+        Route::post('/admin/realpolitik/signals/{signal}/dismiss', [RealPolitikController::class, 'dismiss'])
+            ->name('admin.realpolitik.dismiss');
     });
+
+    Route::post('/realpolitik/watchlist', [RealPolitikWatchlistController::class, 'store'])
+        ->middleware('web.feature:realpolitik')
+        ->name('realpolitik.watchlist.store');
+    Route::delete('/realpolitik/watchlist/{watchlist}', [RealPolitikWatchlistController::class, 'destroy'])
+        ->middleware('web.feature:realpolitik')
+        ->name('realpolitik.watchlist.destroy');
 
     Route::middleware('permission:settings.manage')->group(function () {
         Route::get('/admin/settings', [SettingsController::class, 'edit'])->name('admin.settings.edit');
@@ -258,6 +276,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/settings/newsradar', [SettingsController::class, 'editNewsRadar'])->name('admin.settings.newsradar');
         Route::post('/admin/settings/newsradar', [SettingsController::class, 'updateNewsRadar'])->name('admin.settings.newsradar.update');
         Route::post('/admin/newsradar/hunt', [NewsRadarController::class, 'hunt'])->name('admin.newsradar.hunt');
+        Route::get('/admin/settings/realpolitik', [SettingsController::class, 'editRealPolitik'])->name('admin.settings.realpolitik');
+        Route::post('/admin/settings/realpolitik', [SettingsController::class, 'updateRealPolitik'])->name('admin.settings.realpolitik.update');
+        Route::post('/admin/realpolitik/tick', [RealPolitikController::class, 'tick'])->name('admin.realpolitik.tick');
         Route::get('/admin/llm/models', [LlmModelsController::class, 'index'])->name('admin.llm.models');
         Route::get('/admin/autovet/models', [LlmModelsController::class, 'index'])->name('admin.autovet.models');
     });

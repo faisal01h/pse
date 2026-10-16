@@ -85,9 +85,11 @@ export default function Latihan({ report_url, track_url, dispute_url }) {
             <p className="mt-6 text-sm text-muted">
                 After practice, return to{' '}
                 <Link href="/scipol/bandingkan" className="underline">Compare</Link>
-                {' '}or{' '}
+                {', '}
                 <Link href="/scipol/topik" className="underline">Topic archive</Link>
-                {' '}for analysis.
+                {', or '}
+                <Link href="/scipol/realpolitik" className="underline">REALPOLITIK</Link>
+                {' '}for analysis (REALPOLITIK appears in the sidebar when the plugin is active).
             </p>
         </SciPol>
     );

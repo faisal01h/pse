@@ -13,7 +13,9 @@ export default function Politician({ politician, auth }) {
         (politician.business_affiliations ?? []).length
         || (politician.tendencies ?? []).length
         || (politician.connections ?? []).length
-        || (politician.issue_stances ?? []).length,
+        || (politician.issue_stances ?? []).length
+        || (politician.stance_timeline ?? []).length
+        || (politician.connection_timeline ?? []).length,
     );
 
     const meta = [
@@ -81,12 +83,30 @@ export default function Politician({ politician, auth }) {
                     ) : null}
                 </ProfileSection>
 
+                {(politician.power_signals ?? []).length > 0 ? (
+                    <ProfileSection id="realpolitik" title="Sinyal REALPOLITIK" lead="Lonjakan liputan atau perubahan sikap yang terdeteksi baru-baru ini." className="mt-14">
+                        <ul className="divide-y-2 divide-ink/10 border-t-2 border-ink/10">
+                            {politician.power_signals.map((signal) => (
+                                <li key={signal.id} className="py-4">
+                                    <p className="font-bold">{signal.title}</p>
+                                    {signal.body ? <p className="mt-2 text-muted">{signal.body}</p> : null}
+                                </li>
+                            ))}
+                        </ul>
+                        <p className="mt-4">
+                            <Link href="/realpolitik" className="font-bold underline">Buka papan REALPOLITIK</Link>
+                        </p>
+                    </ProfileSection>
+                ) : null}
+
                 {hasRelations ? (
                     <RelationshipSections
                         tendencies={politician.tendencies}
                         connections={politician.connections}
                         stances={politician.issue_stances}
                         affiliations={politician.business_affiliations}
+                        stanceTimeline={politician.stance_timeline}
+                        connectionTimeline={politician.connection_timeline}
                     />
                 ) : null}
             </div>

@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Plugins\NewsRadar\Jobs\NewsRadarHuntJob;
+use App\Plugins\RealPolitik\Jobs\RealPolitikTickJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -17,6 +18,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->job(new NewsRadarHuntJob)->everyMinute()->withoutOverlapping();
+        $schedule->job(new RealPolitikTickJob)->everyMinute()->withoutOverlapping();
     }
 
     /**

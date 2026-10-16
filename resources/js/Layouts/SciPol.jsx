@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/inertia-react';
 
-const NAV = [
+const BASE_NAV = [
     { href: '/scipol', label: 'Hub', match: (url) => url === '/scipol' || url === '/scipol/' },
     { href: '/scipol/bandingkan', label: 'Compare', match: (url) => url.startsWith('/scipol/bandingkan') },
     { href: '/scipol/isu', label: 'Issue map', match: (url) => url.startsWith('/scipol/isu') },
@@ -9,9 +9,24 @@ const NAV = [
     { href: '/scipol/latihan', label: 'Practice', match: (url) => url.startsWith('/scipol/latihan') },
 ];
 
+const REALPOLITIK_NAV = {
+    href: '/scipol/realpolitik',
+    label: 'REALPOLITIK',
+    match: (url) => url.startsWith('/scipol/realpolitik'),
+};
+
 export default function SciPol({ children, title }) {
-    const { url } = usePage();
+    const { url, props } = usePage();
     const path = url.split('?')[0];
+    const realpolitikActive = Boolean(props.plugins?.realpolitik);
+    const nav = realpolitikActive
+        ? [
+            BASE_NAV[0],
+            BASE_NAV[1],
+            REALPOLITIK_NAV,
+            ...BASE_NAV.slice(2),
+        ]
+        : BASE_NAV;
 
     return (
         <div className="min-h-screen bg-[#eef1f4] text-ink text-[15px] leading-snug">
@@ -36,7 +51,7 @@ export default function SciPol({ children, title }) {
                     <nav aria-label="SciPol tools" className="sticky top-0 p-3">
                         <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted">Tools</p>
                         <ul className="flex flex-wrap gap-1 lg:flex-col lg:gap-0.5">
-                            {NAV.map((item) => {
+                            {nav.map((item) => {
                                 const active = item.match(path);
                                 return (
                                     <li key={item.href}>
@@ -56,6 +71,7 @@ export default function SciPol({ children, title }) {
                         </ul>
                         <p className="mt-4 border-t border-ink/10 px-2 pt-3 text-[11px] text-muted">
                             Analysis over published PolitiSEE archive data.
+                            {realpolitikActive ? ' REALPOLITIK is active.' : ''}
                         </p>
                     </nav>
                 </aside>

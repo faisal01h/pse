@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Catalog\TemporalDuplicateException;
+use App\Catalog\TemporalIntervalWriter;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\BusinessAffiliation;
@@ -19,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 
 class RelationshipAdminController extends Controller
 {
+    public function __construct(private TemporalIntervalWriter $intervals) {}
+
     public function suggestPoliticians(Request $request)
     {
         return response()->json($this->suggest(
@@ -47,7 +51,7 @@ class RelationshipAdminController extends Controller
 
     public function destroyPoliticianTendency(Politician $politician, string $axis): RedirectResponse
     {
-        $this->deleteTendency($politician->id, null, $axis);
+        $this->endTendency($politician->id, null, $axis);
 
         return redirect()->route('admin.politicians.edit', $politician);
     }
@@ -62,7 +66,7 @@ class RelationshipAdminController extends Controller
 
     public function destroyPartyTendency(Party $party, string $axis): RedirectResponse
     {
-        $this->deleteTendency(null, $party->id, $axis);
+        $this->endTendency(null, $party->id, $axis);
 
         return redirect()->route('admin.parties.edit', $party);
     }
@@ -71,17 +75,18 @@ class RelationshipAdminController extends Controller
     {
         $validated = $this->validateLink($request, PoliticianLink::typeKeys(), 'politicians', $politician->id);
         [$a, $b] = PoliticianLink::endpoints($validated['type'], $politician->id, (int) $validated['other_id']);
-        $this->rejectDuplicate(
-            PoliticianLink::query()->where('politician_a_id', $a)->where('politician_b_id', $b)->where('type', $validated['type'])->exists()
-        );
 
-        PoliticianLink::create([
-            'politician_a_id' => $a,
-            'politician_b_id' => $b,
-            'type' => $validated['type'],
-            'summary' => trim($validated['summary']),
-            ...$this->sourceColumns($validated, $request),
-        ]);
+        try {
+            $this->intervals->openPoliticianLink([
+                'politician_a_id' => $a,
+                'politician_b_id' => $b,
+                'type' => $validated['type'],
+                'summary' => trim($validated['summary']),
+                ...$this->sourceColumns($validated, $request),
+            ]);
+        } catch (TemporalDuplicateException $e) {
+            throw ValidationException::withMessages(['other_id' => $e->getMessage()]);
+        }
 
         return redirect()->route('admin.politicians.edit', $politician);
     }
@@ -92,7 +97,7 @@ class RelationshipAdminController extends Controller
             $politicianLink->politician_a_id === $politician->id || $politicianLink->politician_b_id === $politician->id,
             404
         );
-        $politicianLink->delete();
+        $this->intervals->endModel($politicianLink);
 
         return redirect()->route('admin.politicians.edit', $politician);
     }
@@ -101,17 +106,18 @@ class RelationshipAdminController extends Controller
     {
         $validated = $this->validateLink($request, PartyLink::typeKeys(), 'parties', $party->id);
         [$a, $b] = PartyLink::endpoints($validated['type'], $party->id, (int) $validated['other_id']);
-        $this->rejectDuplicate(
-            PartyLink::query()->where('party_a_id', $a)->where('party_b_id', $b)->where('type', $validated['type'])->exists()
-        );
 
-        PartyLink::create([
-            'party_a_id' => $a,
-            'party_b_id' => $b,
-            'type' => $validated['type'],
-            'summary' => trim($validated['summary']),
-            ...$this->sourceColumns($validated, $request),
-        ]);
+        try {
+            $this->intervals->openPartyLink([
+                'party_a_id' => $a,
+                'party_b_id' => $b,
+                'type' => $validated['type'],
+                'summary' => trim($validated['summary']),
+                ...$this->sourceColumns($validated, $request),
+            ]);
+        } catch (TemporalDuplicateException $e) {
+            throw ValidationException::withMessages(['other_id' => $e->getMessage()]);
+        }
 
         return redirect()->route('admin.parties.edit', $party);
     }
@@ -122,7 +128,7 @@ class RelationshipAdminController extends Controller
             $partyLink->party_a_id === $party->id || $partyLink->party_b_id === $party->id,
             404
         );
-        $partyLink->delete();
+        $this->intervals->endModel($partyLink);
 
         return redirect()->route('admin.parties.edit', $party);
     }
@@ -139,7 +145,7 @@ class RelationshipAdminController extends Controller
     public function destroyPoliticianStance(Politician $politician, IssueStance $issueStance): RedirectResponse
     {
         abort_unless($issueStance->politician_id === $politician->id, 404);
-        $issueStance->delete();
+        $this->intervals->endModel($issueStance);
 
         return redirect()->route('admin.politicians.edit', $politician);
     }
@@ -156,7 +162,7 @@ class RelationshipAdminController extends Controller
     public function destroyPartyStance(Party $party, IssueStance $issueStance): RedirectResponse
     {
         abort_unless($issueStance->party_id === $party->id, 404);
-        $issueStance->delete();
+        $this->intervals->endModel($issueStance);
 
         return redirect()->route('admin.parties.edit', $party);
     }
@@ -346,13 +352,7 @@ class RelationshipAdminController extends Controller
 
     private function saveTendency(?int $politicianId, ?int $partyId, array $validated, Request $request): void
     {
-        $query = IdeologyPosition::query()->where('axis', $validated['axis']);
-        $query = $politicianId
-            ? $query->where('politician_id', $politicianId)
-            : $query->where('party_id', $partyId);
-
-        $position = $query->first() ?? new IdeologyPosition;
-        $position->fill([
+        $this->intervals->supersedeTendency([
             'politician_id' => $politicianId,
             'party_id' => $partyId,
             'axis' => $validated['axis'],
@@ -361,32 +361,17 @@ class RelationshipAdminController extends Controller
             'note' => trim($validated['note']),
             ...$this->sourceColumns($validated, $request),
         ]);
-        $position->save();
-        // Manual overwrite replaces the blended sample set; drop prior record basis.
-        $position->basisRecords()->detach();
     }
 
-    private function deleteTendency(?int $politicianId, ?int $partyId, string $axis): void
+    private function endTendency(?int $politicianId, ?int $partyId, string $axis): void
     {
         abort_unless(in_array($axis, IdeologyPosition::axisKeys(), true), 404);
-
-        $query = IdeologyPosition::query()->where('axis', $axis);
-        $politicianId
-            ? $query->where('politician_id', $politicianId)
-            : $query->where('party_id', $partyId);
-
-        $query->delete();
+        $this->intervals->endOpenTendencies($politicianId, $partyId, $axis);
     }
 
     private function saveStance(int $issueId, ?int $politicianId, ?int $partyId, array $validated, Request $request): void
     {
-        $query = IssueStance::query()->where('issue_id', $issueId);
-        $query = $politicianId
-            ? $query->where('politician_id', $politicianId)
-            : $query->where('party_id', $partyId);
-
-        $stance = $query->first() ?? new IssueStance;
-        $stance->fill([
+        $this->intervals->supersedeStance([
             'issue_id' => $issueId,
             'politician_id' => $politicianId,
             'party_id' => $partyId,
@@ -394,7 +379,6 @@ class RelationshipAdminController extends Controller
             'note' => trim($validated['note']),
             ...$this->sourceColumns($validated, $request),
         ]);
-        $stance->save();
     }
 
     private function rejectDuplicate(bool $exists, string $field = 'other_id', string $message = 'Hubungan ini sudah tercatat.'): void

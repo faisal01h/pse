@@ -5,6 +5,7 @@ const items = [
     { label: 'LLM', route: 'admin.settings.llm' },
     { label: 'AutoVet', route: 'admin.settings.autovet' },
     { label: 'NewsRadar', route: 'admin.settings.newsradar' },
+    { label: 'REALPOLITIK', route: 'admin.settings.realpolitik' },
 ];
 
 export default function SettingsNav() {

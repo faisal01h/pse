@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTemporalInterval;
 use App\Models\Concerns\RecordsChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class IssueStance extends Model
 {
-    use RecordsChanges;
+    use HasTemporalInterval, RecordsChanges;
 
     public const SUPPORT = 'dukung';
 
@@ -31,11 +32,15 @@ class IssueStance extends Model
         'source_url',
         'source_type',
         'occurred_on',
+        'effective_from',
+        'ended_at',
         'user_id',
     ];
 
     protected $casts = [
         'occurred_on' => 'date',
+        'effective_from' => 'date',
+        'ended_at' => 'date',
         'issue_id' => 'integer',
         'politician_id' => 'integer',
         'party_id' => 'integer',

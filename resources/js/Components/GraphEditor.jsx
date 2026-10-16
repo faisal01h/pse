@@ -257,20 +257,38 @@ export default function GraphEditor({
             </section>
             <section>
                 <h2 className="text-2xl font-bold">Hubungan</h2>
+                <p className="mt-2">Hubungan aktif. Menghapus menutup interval (riwayat tetap tersimpan).</p>
                 {graph.connections.length > 0 ? (
                     <ul className="mt-4 flex flex-col gap-3">
                         {graph.connections.map((item) => (
                             <li key={item.id} className="border-2 border-ink p-4">
                                 <p className="font-bold">{item.label} {item.other?.name}</p>
+                                <p className="mt-1 text-sm text-muted">
+                                    Berlaku {item.effective_from || item.occurred_on || '—'} → sekarang
+                                </p>
                                 <p className="mt-1">{item.summary}</p>
                                 <a href={item.source_url} className="font-bold" target="_blank" rel="noreferrer">Sumber: {item.source_type}</a>
                                 <div>
-                                    <Link href={linkDestroy(item.id)} method="delete" as="button" className="mt-3 underline" preserveScroll>Hapus hubungan</Link>
+                                    <Link href={linkDestroy(item.id)} method="delete" as="button" className="mt-3 underline" preserveScroll>Akhiri hubungan</Link>
                                 </div>
                             </li>
                         ))}
                     </ul>
-                ) : <p className="mt-2">Belum ada hubungan.</p>}
+                ) : <p className="mt-2">Belum ada hubungan aktif.</p>}
+                {(graph.connection_history ?? []).filter((item) => item.ended_at).length > 0 ? (
+                    <details className="mt-4 border-2 border-ink/30 p-4">
+                        <summary className="cursor-pointer font-bold">Riwayat hubungan</summary>
+                        <ul className="mt-3 flex flex-col gap-3">
+                            {graph.connection_history.filter((item) => item.ended_at).map((item) => (
+                                <li key={`hist-${item.id}`}>
+                                    <p className="font-bold">{item.label} {item.other?.name}</p>
+                                    <p className="text-sm text-muted">{item.effective_from || '—'} → {item.ended_at}</p>
+                                    <p className="mt-1">{item.summary}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    </details>
+                ) : null}
                 <form onSubmit={submitLink} className="mt-4 border-2 border-ink p-4">
                     <h3 className="text-xl font-bold">Tambah hubungan</h3>
                     <ValidationErrors errors={linkForm.errors} />
@@ -301,23 +319,41 @@ export default function GraphEditor({
             </section>
             <section>
                 <h2 className="text-2xl font-bold">Isu</h2>
+                <p className="mt-2">Posisi aktif. Menyimpan isu yang sama menutup posisi lama dan membuka interval baru.</p>
                 {graph.stances.length > 0 ? (
                     <ul className="mt-4 flex flex-col gap-3">
                         {graph.stances.map((item) => (
                             <li key={item.id} className="border-2 border-ink p-4">
                                 <p className="font-bold">{item.issue.name}: {item.label}</p>
+                                <p className="mt-1 text-sm text-muted">
+                                    Berlaku {item.effective_from || item.occurred_on || '—'} → sekarang
+                                </p>
                                 <p className="mt-1">{item.note}</p>
                                 <a href={item.source_url} className="font-bold" target="_blank" rel="noreferrer">Sumber: {item.source_type}</a>
                                 <div>
-                                    <Link href={stanceDestroy(item.id)} method="delete" as="button" className="mt-3 underline" preserveScroll>Hapus posisi isu</Link>
+                                    <Link href={stanceDestroy(item.id)} method="delete" as="button" className="mt-3 underline" preserveScroll>Akhiri posisi isu</Link>
                                 </div>
                             </li>
                         ))}
                     </ul>
-                ) : <p className="mt-2">Belum ada posisi isu.</p>}
+                ) : <p className="mt-2">Belum ada posisi isu aktif.</p>}
+                {(graph.stance_history ?? []).filter((item) => item.ended_at).length > 0 ? (
+                    <details className="mt-4 border-2 border-ink/30 p-4">
+                        <summary className="cursor-pointer font-bold">Riwayat posisi isu</summary>
+                        <ul className="mt-3 flex flex-col gap-3">
+                            {graph.stance_history.filter((item) => item.ended_at).map((item) => (
+                                <li key={`stance-hist-${item.id}`}>
+                                    <p className="font-bold">{item.issue?.name}: {item.label}</p>
+                                    <p className="text-sm text-muted">{item.effective_from || '—'} → {item.ended_at}</p>
+                                    <p className="mt-1">{item.note}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    </details>
+                ) : null}
                 <form onSubmit={submitStance} className="mt-4 border-2 border-ink p-4">
                     <h3 className="text-xl font-bold">Tambah atau perbarui isu</h3>
-                    <p className="mt-1">Nama yang sudah ada akan dipakai lagi. Menyimpan isu yang sama mengganti posisi sebelumnya.</p>
+                    <p className="mt-1">Nama yang sudah ada akan dipakai lagi. Menyimpan isu yang sama membuat entri linimasa baru.</p>
                     <ValidationErrors errors={stanceForm.errors} />
                     <div className="mt-4">
                         <label htmlFor="issue-name" className="block font-bold mb-1">Nama isu</label>

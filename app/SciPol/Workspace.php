@@ -107,9 +107,9 @@ class Workspace
     {
         return Issue::query()
             ->withCount([
-                'stances as politician_stance_count' => fn ($q) => $q->whereNotNull('politician_id')
+                'stances as politician_stance_count' => fn ($q) => $q->open()->whereNotNull('politician_id')
                     ->whereHas('politician', fn ($p) => $p->where('status', 1)),
-                'stances as party_stance_count' => fn ($q) => $q->whereNotNull('party_id'),
+                'stances as party_stance_count' => fn ($q) => $q->open()->whereNotNull('party_id'),
             ])
             ->orderBy('name')
             ->get()
@@ -130,10 +130,18 @@ class Workspace
     public function issueMap(Issue $issue): array
     {
         $stances = IssueStance::query()
+            ->open()
             ->where('issue_id', $issue->id)
             ->with(['politician:id,name,status', 'party:id,name'])
-            ->orderBy('id')
-            ->get();
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->get()
+            ->unique(function (IssueStance $stance) {
+                return $stance->politician_id
+                    ? 'pol|'.$stance->politician_id
+                    : 'party|'.$stance->party_id;
+            })
+            ->values();
 
         $groups = [
             IssueStance::SUPPORT => [],
@@ -176,6 +184,8 @@ class Workspace
                 'source_url' => $stance->source_url,
                 'source_type' => $stance->source_type,
                 'occurred_on' => optional($stance->occurred_on)->toDateString(),
+                'effective_from' => optional($stance->effective_from)->toDateString(),
+                'ended_at' => optional($stance->ended_at)->toDateString(),
             ];
         }
 

@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTemporalInterval;
 use App\Models\Concerns\RecordsChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PartyLink extends Model
 {
-    use RecordsChanges;
+    use HasTemporalInterval, RecordsChanges;
 
     public const TYPE_COALITION = 'koalisi';
 
@@ -38,11 +39,15 @@ class PartyLink extends Model
         'source_url',
         'source_type',
         'occurred_on',
+        'effective_from',
+        'ended_at',
         'user_id',
     ];
 
     protected $casts = [
         'occurred_on' => 'date',
+        'effective_from' => 'date',
+        'ended_at' => 'date',
         'party_a_id' => 'integer',
         'party_b_id' => 'integer',
         'user_id' => 'integer',

@@ -38,6 +38,7 @@ class SettingsController extends Controller
             'web_tracking_enabled' => 'nullable|boolean',
             'web_disputes_enabled' => 'nullable|boolean',
             'web_scipol_enabled' => 'nullable|boolean',
+            'web_realpolitik_enabled' => 'nullable|boolean',
             'web_turnstile_enabled' => 'nullable|boolean',
             'web_site_notice' => 'nullable|string|max:1000',
         ])->validate();
@@ -47,6 +48,7 @@ class SettingsController extends Controller
             'web.tracking_enabled' => $request->boolean('web_tracking_enabled'),
             'web.disputes_enabled' => $request->boolean('web_disputes_enabled'),
             'web.scipol_enabled' => $request->boolean('web_scipol_enabled'),
+            'web.realpolitik_enabled' => $request->boolean('web_realpolitik_enabled'),
             'web.turnstile_enabled' => $request->boolean('web_turnstile_enabled'),
             'web.site_notice' => trim((string) ($validated['web_site_notice'] ?? '')),
         ]);
@@ -90,6 +92,7 @@ class SettingsController extends Controller
             $this->settings->setMany([
                 'autovet.enabled' => false,
                 'newsradar.enabled' => false,
+                'realpolitik.sitrep_enabled' => false,
             ]);
         }
 
@@ -188,6 +191,41 @@ class SettingsController extends Controller
         return redirect()->route('admin.settings.newsradar')->with('success', 'Pengaturan NewsRadar disimpan.');
     }
 
+    public function editRealPolitik()
+    {
+        return Inertia::render('Admin/Settings/RealPolitik', [
+            'settings' => $this->realPolitikSettings(),
+            'pluginReady' => $this->plugins->isEnabled('realpolitik'),
+        ]);
+    }
+
+    public function updateRealPolitik(Request $request)
+    {
+        $validated = Validator::make($request->all(), [
+            'realpolitik_enabled' => 'nullable|boolean',
+            'realpolitik_sitrep_enabled' => 'nullable|boolean',
+            'realpolitik_window_hours' => 'required|integer|min:1|max:168',
+            'realpolitik_tick_minutes' => 'required|integer|min:5|max:1440',
+            'realpolitik_shock_ratio' => 'required|numeric|min:1.5|max:50',
+            'realpolitik_shock_min_count' => 'required|integer|min:2|max:50',
+            'realpolitik_baseline_days' => 'required|integer|min:7|max:180',
+            'realpolitik_sitrep_max_records' => 'required|integer|min:5|max:40',
+        ])->validate();
+
+        $this->settings->setMany([
+            'realpolitik.enabled' => $request->boolean('realpolitik_enabled'),
+            'realpolitik.sitrep_enabled' => $request->boolean('realpolitik_sitrep_enabled'),
+            'realpolitik.window_hours' => (int) $validated['realpolitik_window_hours'],
+            'realpolitik.tick_minutes' => (int) $validated['realpolitik_tick_minutes'],
+            'realpolitik.shock_ratio' => (float) $validated['realpolitik_shock_ratio'],
+            'realpolitik.shock_min_count' => (int) $validated['realpolitik_shock_min_count'],
+            'realpolitik.baseline_days' => (int) $validated['realpolitik_baseline_days'],
+            'realpolitik.sitrep_max_records' => (int) $validated['realpolitik_sitrep_max_records'],
+        ]);
+
+        return redirect()->route('admin.settings.realpolitik')->with('success', 'Pengaturan REALPOLITIK disimpan.');
+    }
+
     /**
      * @return list<string>
      */
@@ -223,6 +261,9 @@ class SettingsController extends Controller
             'web_scipol_enabled' => $has('web.scipol_enabled')
                 ? $this->settings->getBool('web.scipol_enabled', true)
                 : true,
+            'web_realpolitik_enabled' => $has('web.realpolitik_enabled')
+                ? $this->settings->getBool('web.realpolitik_enabled', false)
+                : false,
             'web_turnstile_enabled' => $has('web.turnstile_enabled')
                 ? $this->settings->getBool('web.turnstile_enabled', true)
                 : true,
@@ -279,6 +320,24 @@ class SettingsController extends Controller
             'newsradar_frequency' => $this->settings->getString('newsradar.frequency', '1h'),
             'newsradar_custom_minutes' => $this->settings->getInt('newsradar.custom_minutes', 60),
             'newsradar_last_run_at' => $this->settings->getString('newsradar.last_run_at', ''),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function realPolitikSettings(): array
+    {
+        return [
+            'realpolitik_enabled' => $this->settings->getBool('realpolitik.enabled', false),
+            'realpolitik_sitrep_enabled' => $this->settings->getBool('realpolitik.sitrep_enabled', true),
+            'realpolitik_window_hours' => $this->settings->getInt('realpolitik.window_hours', 24),
+            'realpolitik_tick_minutes' => $this->settings->getInt('realpolitik.tick_minutes', 15),
+            'realpolitik_shock_ratio' => $this->settings->getFloat('realpolitik.shock_ratio', 3.0),
+            'realpolitik_shock_min_count' => $this->settings->getInt('realpolitik.shock_min_count', 3),
+            'realpolitik_baseline_days' => $this->settings->getInt('realpolitik.baseline_days', 30),
+            'realpolitik_sitrep_max_records' => $this->settings->getInt('realpolitik.sitrep_max_records', 20),
+            'realpolitik_last_run_at' => $this->settings->getString('realpolitik.last_run_at', ''),
         ];
     }
 }

@@ -9,7 +9,9 @@ export default function Party({ party, politicians = [], meta = {}, auth }) {
     const hasRelations = Boolean(
         (party.tendencies ?? []).length
         || (party.connections ?? []).length
-        || (party.issue_stances ?? []).length,
+        || (party.issue_stances ?? []).length
+        || (party.stance_timeline ?? []).length
+        || (party.connection_timeline ?? []).length,
     );
 
     return (
@@ -100,6 +102,8 @@ export default function Party({ party, politicians = [], meta = {}, auth }) {
                         tendencies={party.tendencies}
                         connections={party.connections}
                         stances={party.issue_stances}
+                        stanceTimeline={party.stance_timeline}
+                        connectionTimeline={party.connection_timeline}
                     />
                 ) : null}
             </div>

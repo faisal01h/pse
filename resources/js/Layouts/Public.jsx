@@ -42,6 +42,9 @@ export default function Public({ children, auth }) {
     if (features.scipol !== false) {
         links.push({ href: '/scipol', label: 'SciPol' });
     }
+    if (features.realpolitik) {
+        links.push({ href: '/realpolitik', label: 'REALPOLITIK' });
+    }
     if (features.submissions !== false) {
         links.push({ href: '/reports', label: 'Buat pengajuan' });
     }

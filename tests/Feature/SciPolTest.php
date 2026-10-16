@@ -10,7 +10,9 @@ use App\Models\IssueStance;
 use App\Models\Politician;
 use App\Models\PublicRecord;
 use App\Models\Topic;
+use App\Plugins\RealPolitik\Models\PowerSignal;
 use App\SciPol\MaskedId;
+use App\Settings\SettingsRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use OpenSpout\Reader\XLSX\Reader;
 use Tests\TestCase;
@@ -27,7 +29,49 @@ class SciPolTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('SciPol/Index')
                 ->has('codebook')
-                ->has('tools', 5));
+                ->has('tools', 5)
+                ->where('realpolitikActive', false)
+                ->where('plugins.realpolitik', false));
+    }
+
+    public function test_hub_and_nav_include_realpolitik_when_plugin_active(): void
+    {
+        app(SettingsRepository::class)->set('realpolitik.enabled', true);
+
+        $this->get(route('scipol.hub'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('SciPol/Index')
+                ->where('realpolitikActive', true)
+                ->where('plugins.realpolitik', true)
+                ->has('tools', 6)
+                ->where('tools.1.title', 'REALPOLITIK')
+                ->where('tools.1.href', route('scipol.realpolitik')));
+    }
+
+    public function test_scipol_realpolitik_page_requires_plugin(): void
+    {
+        $this->get(route('scipol.realpolitik'))->assertNotFound();
+
+        app(SettingsRepository::class)->setMany([
+            'realpolitik.enabled' => true,
+            'realpolitik.sitrep_enabled' => false,
+        ]);
+
+        PowerSignal::create([
+            'type' => PowerSignal::TYPE_SHOCK,
+            'severity' => PowerSignal::SEVERITY_MEDIUM,
+            'title' => 'Lonjakan uji SciPol',
+            'body' => 'Sinyal uji untuk halaman penelitian SciPol.',
+            'evidence' => ['public_record_ids' => []],
+        ]);
+
+        $this->get(route('scipol.realpolitik'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('SciPol/RealPolitik')
+                ->has('signals', 1)
+                ->where('signals.0.title', 'Lonjakan uji SciPol'));
     }
 
     public function test_compare_shows_only_published_politicians_with_masked_ids(): void

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Plugins\PluginManager;
 use App\Web\WebFeatures;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -51,6 +52,9 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
             ],
             'features' => $features->toArray(),
+            'plugins' => [
+                'realpolitik' => app(PluginManager::class)->isEnabled('realpolitik'),
+            ],
             'site_notice' => $features->siteNotice(),
             'turnstile' => [
                 'sitekey' => config('turnstile.sitekey'),

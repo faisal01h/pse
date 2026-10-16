@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Catalog\TemporalDuplicateException;
+use App\Catalog\TemporalIntervalWriter;
 use App\Http\Controllers\Controller;
-use App\Models\IdeologyPosition;
 use App\Models\Issue;
 use App\Models\IssueStance;
 use App\Models\PoliticianLink;
@@ -14,6 +15,8 @@ use Illuminate\Validation\ValidationException;
 
 class ProposalController extends Controller
 {
+    public function __construct(private TemporalIntervalWriter $intervals) {}
+
     public function accept(Request $request, RelationshipProposal $proposal): RedirectResponse
     {
         abort_unless($proposal->status === RelationshipProposal::STATUS_PENDING, 404);
@@ -65,36 +68,37 @@ class ProposalController extends Controller
         $payload = $proposal->payload;
 
         if ($proposal->kind === RelationshipProposal::KIND_AXIS) {
-            $position = IdeologyPosition::query()
-                ->where('politician_id', $politicianId)
-                ->where('axis', $payload['axis'])
-                ->first() ?? new IdeologyPosition;
-            $incoming = (int) $payload['score'];
-            $blended = $position->exists
-                ? IdeologyPosition::blendScore((int) $position->score, (int) ($position->samples ?: 1), $incoming)
-                : ['score' => max(0, min(100, $incoming)), 'samples' => 1];
-            $position->fill([
+            $this->intervals->blendTendency([
                 'politician_id' => $politicianId,
                 'party_id' => null,
                 'axis' => $payload['axis'],
-                'score' => $blended['score'],
-                'samples' => $blended['samples'],
                 'note' => $note,
                 ...$source,
-            ]);
-            $position->save();
-            $position->basisRecords()->syncWithoutDetaching([$record->id]);
+            ], (int) $payload['score'], $record->id);
 
             return;
         }
 
         if ($proposal->kind === RelationshipProposal::KIND_STANCE) {
             $issue = Issue::findOrCreateByName((string) $payload['issue_name']);
-            $stance = IssueStance::query()
+            $open = IssueStance::query()
                 ->where('politician_id', $politicianId)
                 ->where('issue_id', $issue->id)
-                ->first() ?? new IssueStance;
-            $stance->fill([
+                ->open()
+                ->orderByDesc('effective_from')
+                ->orderByDesc('id')
+                ->first();
+
+            if ($open && $open->position === $payload['position']) {
+                $open->fill([
+                    'note' => $note,
+                    ...$source,
+                ])->save();
+
+                return;
+            }
+
+            $this->intervals->supersedeStance([
                 'issue_id' => $issue->id,
                 'politician_id' => $politicianId,
                 'party_id' => null,
@@ -102,7 +106,6 @@ class ProposalController extends Controller
                 'note' => $note,
                 ...$source,
             ]);
-            $stance->save();
 
             return;
         }
@@ -110,23 +113,19 @@ class ProposalController extends Controller
         $otherId = (int) $payload['other_politician_id'];
         $type = (string) $payload['type'];
         [$a, $b] = PoliticianLink::endpoints($type, $politicianId, $otherId);
-        $exists = PoliticianLink::query()
-            ->where('politician_a_id', $a)
-            ->where('politician_b_id', $b)
-            ->where('type', $type)
-            ->exists();
-        if ($exists) {
+
+        try {
+            $this->intervals->openPoliticianLink([
+                'politician_a_id' => $a,
+                'politician_b_id' => $b,
+                'type' => $type,
+                'summary' => $note,
+                ...$source,
+            ]);
+        } catch (TemporalDuplicateException $e) {
             throw ValidationException::withMessages([
-                'other_id' => 'Hubungan ini sudah tercatat.',
+                'other_id' => $e->getMessage(),
             ]);
         }
-
-        PoliticianLink::create([
-            'politician_a_id' => $a,
-            'politician_b_id' => $b,
-            'type' => $type,
-            'summary' => $note,
-            ...$source,
-        ]);
     }
 }

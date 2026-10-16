@@ -23,14 +23,55 @@ function Entry({ children }) {
     return <li className="py-5 first:pt-4">{children}</li>;
 }
 
+function TimelineList({ items, emptyLabel }) {
+    if (!items?.length) {
+        return <p className="text-muted">{emptyLabel}</p>;
+    }
+
+    return (
+        <EntryList>
+            {items.map((item, index) => (
+                <Entry key={`${item.issue || item.label}-${item.effective_from}-${index}`}>
+                    <p className="text-sm text-muted">
+                        {item.effective_from || '—'}
+                        {' → '}
+                        {item.active ? 'sekarang' : (item.ended_at || '—')}
+                        {item.active ? <span className="ml-2 font-bold text-ink">aktif</span> : null}
+                    </p>
+                    <p className="mt-1 text-lg font-bold">
+                        {item.issue ? (
+                            <>
+                                {item.issue}
+                                <span className="text-muted"> · {item.position_label}</span>
+                            </>
+                        ) : (
+                            <>
+                                {item.label}{' '}
+                                {item.other ? <Link href={item.other.href}>{item.other.name}</Link> : null}
+                            </>
+                        )}
+                    </p>
+                    {item.note || item.summary ? (
+                        <p className="mt-2 leading-relaxed">{item.note || item.summary}</p>
+                    ) : null}
+                    <SourceLink url={item.source_url} type={item.source_type} />
+                </Entry>
+            ))}
+        </EntryList>
+    );
+}
+
 export default function RelationshipSections({
     tendencies = [],
     connections = [],
     stances = [],
     affiliations = [],
+    stanceTimeline = [],
+    connectionTimeline = [],
     asSections = true,
 }) {
-    if (tendencies.length === 0 && connections.length === 0 && stances.length === 0 && affiliations.length === 0) {
+    const hasTimeline = stanceTimeline.length > 0 || connectionTimeline.length > 0;
+    if (tendencies.length === 0 && connections.length === 0 && stances.length === 0 && affiliations.length === 0 && !hasTimeline) {
         return null;
     }
 
@@ -128,7 +169,7 @@ export default function RelationshipSections({
                 ? wrap(
                     'isu',
                     'Posisi isu',
-                    'Sikap terhadap isu publik yang tercatat dari sumber.',
+                    'Sikap terhadap isu publik yang tercatat dari sumber (posisi aktif).',
                     <EntryList>
                         {stances.map((item) => (
                             <Entry key={`${item.issue}-${item.position_label}`}>
@@ -152,6 +193,24 @@ export default function RelationshipSections({
                             </Entry>
                         ))}
                     </EntryList>,
+                )
+                : null}
+
+            {stanceTimeline.length > 1
+                ? wrap(
+                    'linimasa-isu',
+                    'Linimasa posisi isu',
+                    'Perubahan sikap dari waktu ke waktu, termasuk posisi yang sudah berakhir.',
+                    <TimelineList items={stanceTimeline} emptyLabel="Belum ada riwayat posisi isu." />,
+                )
+                : null}
+
+            {connectionTimeline.length > 1
+                ? wrap(
+                    'linimasa-hubungan',
+                    'Linimasa hubungan',
+                    'Koalisi, oposisi, atau kaitan lain beserta masa berlakunya.',
+                    <TimelineList items={connectionTimeline} emptyLabel="Belum ada riwayat hubungan." />,
                 )
                 : null}
         </div>

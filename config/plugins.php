@@ -28,5 +28,10 @@ return [
             'enabled_setting' => 'newsradar.enabled',
             'requires' => ['llm'],
         ],
+        [
+            'class' => App\Plugins\RealPolitik\RealPolitikPlugin::class,
+            'enabled' => true,
+            'enabled_setting' => 'realpolitik.enabled',
+        ],
     ],
 ];

@@ -10,6 +10,7 @@ export default function Web({ auth, settings }) {
         web_tracking_enabled: Boolean(settings.web_tracking_enabled),
         web_disputes_enabled: Boolean(settings.web_disputes_enabled),
         web_scipol_enabled: Boolean(settings.web_scipol_enabled),
+        web_realpolitik_enabled: Boolean(settings.web_realpolitik_enabled),
         web_turnstile_enabled: Boolean(settings.web_turnstile_enabled),
         web_site_notice: settings.web_site_notice || '',
     });
@@ -62,6 +63,14 @@ export default function Web({ auth, settings }) {
                             onChange={(event) => setData('web_scipol_enabled', event.target.checked)}
                         />
                         Tampilkan SciPol
+                    </label>
+                    <label className="mt-3 flex items-center gap-3">
+                        <input
+                            type="checkbox"
+                            checked={data.web_realpolitik_enabled}
+                            onChange={(event) => setData('web_realpolitik_enabled', event.target.checked)}
+                        />
+                        Tampilkan REALPOLITIK (papan publik)
                     </label>
                     <label className="mt-3 flex items-center gap-3">
                         <input
