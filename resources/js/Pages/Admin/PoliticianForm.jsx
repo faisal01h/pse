@@ -25,6 +25,7 @@ export default function PoliticianForm({ auth, politician, parties, records, gra
         status: politician ? String(politician.status) : '0',
         photo: null,
         remove_photo: false,
+        confirm_duplicate: false,
     });
 
     const submit = (event) => {
@@ -42,6 +43,16 @@ export default function PoliticianForm({ auth, politician, parties, records, gra
                 <div>
                     <label htmlFor="name" className="block font-bold mb-1">Nama</label>
                     <input id="name" value={data.name} onChange={(event) => setData('name', event.target.value)} className="gov-input" />
+                    {errors.name && errors.name.includes('Tetap simpan') ? (
+                        <label className="mt-2 flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={data.confirm_duplicate}
+                                onChange={(event) => setData('confirm_duplicate', event.target.checked)}
+                            />
+                            Tetap simpan sebagai orang berbeda
+                        </label>
+                    ) : null}
                 </div>
                 <div className="mt-4">
                     <label htmlFor="position" className="block font-bold mb-1">Jabatan</label>

@@ -17,6 +17,7 @@ return [
         'parties.edit' => 'Mengubah partai',
         'businesses.add' => 'Menambah bisnis',
         'businesses.edit' => 'Mengubah bisnis',
+        'duplicates.manage' => 'Menggabungkan data ganda',
         'audits.view' => 'Melihat audit',
         'audits.rerun' => 'Menjalankan ulang inferensi',
         'pages.add' => 'Menambah halaman',

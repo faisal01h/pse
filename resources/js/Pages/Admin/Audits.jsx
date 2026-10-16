@@ -12,6 +12,7 @@ const actionLabel = {
     updated: 'Diubah',
     deleted: 'Dihapus',
     inference: 'Inferensi',
+    merged: 'Digabung',
 };
 
 function formatDate(value) {

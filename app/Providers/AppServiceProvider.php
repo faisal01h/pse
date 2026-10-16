@@ -2,16 +2,23 @@
 
 namespace App\Providers;
 
+use App\Duplicates\NameNormalizer;
 use App\Inference\HttpReportReader;
 use App\Inference\LayaReportReader;
 use App\Inference\LocalReportReader;
 use App\Inference\ReportReader;
+use App\Models\Business;
+use App\Models\Party;
+use App\Models\Politician;
+use App\Models\RecordMerge;
 use App\Plugins\PluginManager;
 use App\Search\Embedder;
 use App\Search\HashingEmbedder;
 use App\Search\HttpEmbedder;
 use App\Search\SearchIndexer;
 use App\Settings\SettingsRepository;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use MarcReichel\Laya\Laya;
 
@@ -81,6 +88,42 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         SearchIndexer::register();
+        $this->registerMergeRedirects();
         $this->app->make(PluginManager::class)->bootRegistered();
+    }
+
+    /**
+     * Links to a record that was merged into another keep working: GETs are redirected
+     * to the surviving record, anything else is a plain 404.
+     */
+    private function registerMergeRedirects(): void
+    {
+        $bindings = [
+            'politician' => [NameNormalizer::POLITICIAN, Politician::class, 'politicians'],
+            'party' => [NameNormalizer::PARTY, Party::class, 'parties'],
+            'business' => [NameNormalizer::BUSINESS, Business::class, 'businesses'],
+        ];
+
+        foreach ($bindings as $parameter => [$type, $model, $segment]) {
+            Route::bind($parameter, function (string $value) use ($type, $model, $segment) {
+                $found = $model::query()->find($value);
+
+                if ($found) {
+                    return $found;
+                }
+
+                $canonical = ctype_digit($value) ? RecordMerge::canonicalFor($type, (int) $value) : null;
+                $request = request();
+
+                if ($canonical !== null && $request->isMethodSafe()) {
+                    $path = preg_replace('#/'.$segment.'/'.preg_quote($value, '#').'(?=/|$)#', '/'.$segment.'/'.$canonical, $request->getPathInfo());
+                    $query = $request->getQueryString();
+
+                    throw new HttpResponseException(redirect($path.($query ? '?'.$query : ''), 301));
+                }
+
+                abort(404);
+            });
+        }
     }
 }

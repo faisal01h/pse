@@ -2,6 +2,8 @@
 
 namespace App\Plugins\NewsRadar;
 
+use App\Duplicates\DuplicateDetector;
+use App\Duplicates\NameNormalizer;
 use App\Models\Politician;
 use App\Models\PublicRecord;
 use App\Models\Topic;
@@ -30,10 +32,7 @@ class SubmissionFactory
             $category = PublicRecord::CATEGORY_STATEMENT;
         }
 
-        $politician = Politician::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
-            ->whereRaw('LOWER(institution) = ?', [mb_strtolower($institution)])
-            ->first();
+        $politician = app(DuplicateDetector::class)->findPolitician($name, $institution);
 
         if (! $politician) {
             $politician = Politician::create([

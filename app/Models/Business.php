@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Duplicates\DuplicateDetector;
+use App\Duplicates\NameNormalizer;
 use App\Models\Concerns\RecordsChanges;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,9 +31,7 @@ class Business extends Model
     public static function findOrCreateByName(string $name, int $status = self::STATUS_DRAFT): self
     {
         $name = trim($name);
-        $existing = static::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
-            ->first();
+        $existing = app(DuplicateDetector::class)->firstExact(NameNormalizer::BUSINESS, $name);
 
         if ($existing) {
             return $existing;

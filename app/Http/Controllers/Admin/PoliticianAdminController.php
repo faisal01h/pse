@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Catalog\RelationshipGraph;
+use App\Duplicates\DuplicateDetector;
+use App\Duplicates\NameNormalizer;
 use App\Http\Controllers\Controller;
 use App\Inference\ProposalQueue;
 use App\Models\Party;
@@ -10,6 +12,7 @@ use App\Models\Politician;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -59,6 +62,7 @@ class PoliticianAdminController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validatePolitician($request);
+        $this->guardDuplicateName($request, $validated['name']);
 
         $politician = Politician::create([
             'name' => trim($validated['name']),
@@ -90,6 +94,7 @@ class PoliticianAdminController extends Controller
     public function update(Request $request, Politician $politician): RedirectResponse
     {
         $validated = $this->validatePolitician($request);
+        $this->guardDuplicateName($request, $validated['name'], $politician);
         $politician->fill([
             'name' => trim($validated['name']),
             'position' => $validated['position'],
@@ -126,6 +131,33 @@ class PoliticianAdminController extends Controller
         $politician->delete();
 
         return redirect()->route('admin.politicians.index');
+    }
+
+    /**
+     * Same-name people exist, so a normalized-name match warns and needs explicit confirmation.
+     */
+    private function guardDuplicateName(Request $request, string $name, ?Politician $current = null): void
+    {
+        if ($request->boolean('confirm_duplicate')) {
+            return;
+        }
+
+        if ($current && app(NameNormalizer::class)->normalize(NameNormalizer::POLITICIAN, $current->name)
+            === app(NameNormalizer::class)->normalize(NameNormalizer::POLITICIAN, $name)) {
+            return;
+        }
+
+        $matches = app(DuplicateDetector::class)->exactMatches(NameNormalizer::POLITICIAN, $name, $current?->id);
+
+        if ($matches->isEmpty()) {
+            return;
+        }
+
+        $list = $matches->take(3)->map(fn (Politician $match) => $match->name.' ('.$match->institution.')')->implode('; ');
+
+        throw ValidationException::withMessages([
+            'name' => 'Nama mirip dengan profil yang sudah ada: '.$list.'. Centang "Tetap simpan sebagai orang berbeda" jika memang berbeda.',
+        ]);
     }
 
     private function parties()

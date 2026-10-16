@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Catalog\RelationshipGraph;
+use App\Duplicates\DuplicateDetector;
+use App\Duplicates\NameNormalizer;
 use App\Http\Controllers\Controller;
 use App\Models\Party;
 use Illuminate\Http\RedirectResponse;
@@ -96,12 +98,11 @@ class PartyController extends Controller
             'logo.mimetypes' => 'Logo harus berupa JPEG, PNG, WebP, atau GIF.',
         ]);
 
-        $name = mb_strtolower(trim($validated['name']));
-        $existing = Party::query()->whereRaw('LOWER(name) = ?', [$name])->first();
+        $existing = app(DuplicateDetector::class)->firstExact(NameNormalizer::PARTY, $validated['name'], $party?->id);
 
-        if ($existing && $existing->id !== $party?->id) {
+        if ($existing) {
             throw ValidationException::withMessages([
-                'name' => 'Nama partai itu sudah ada.',
+                'name' => 'Nama partai itu sudah ada ("'.$existing->name.'"). Gunakan data yang ada atau gabungkan lewat menu Data ganda.',
             ]);
         }
 

@@ -30,6 +30,12 @@ const items = [
         show: (permissions) => hasAny(permissions, ['businesses.add', 'businesses.edit']),
     },
     {
+        label: 'Data ganda',
+        match: ['admin.duplicates.*'],
+        href: () => route('admin.duplicates.index'),
+        show: (permissions) => permissions.includes('duplicates.manage'),
+    },
+    {
         label: 'Halaman',
         match: ['admin.pages.*'],
         href: () => route('admin.pages.index'),

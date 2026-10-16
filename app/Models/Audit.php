@@ -15,6 +15,8 @@ class Audit extends Model
 
     public const ACTION_INFERENCE = 'inference';
 
+    public const ACTION_MERGED = 'merged';
+
     public const TRIGGER_PUBLISH = 'publish';
 
     public const TRIGGER_MANUAL = 'manual';

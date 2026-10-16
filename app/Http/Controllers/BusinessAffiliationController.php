@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Duplicates\DuplicateDetector;
+use App\Duplicates\NameNormalizer;
 use App\Catalog\ReliabilityLevel;
 use App\Models\Business;
 use App\Models\BusinessAffiliation;
@@ -66,10 +68,7 @@ class BusinessAffiliationController extends Controller
         $business = $this->businessFromChoice($validated['business_id'] ?? null, $validated['business_name'] ?? null);
         $ownershipPercent = $this->ownershipPercentFromRequest($validated);
 
-        $politician = Politician::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($validated['name']))])
-            ->whereRaw('LOWER(institution) = ?', [mb_strtolower(trim($validated['department']))])
-            ->first();
+        $politician = app(DuplicateDetector::class)->findPolitician(trim($validated['name']), trim($validated['department']));
 
         if (! $politician) {
             $politician = Politician::create([
@@ -444,7 +443,7 @@ class BusinessAffiliationController extends Controller
             return null;
         }
 
-        $party = Party::query()->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first();
+        $party = app(DuplicateDetector::class)->firstExact(NameNormalizer::PARTY, $name);
 
         if (! $party) {
             $party = Party::create(['name' => $name]);

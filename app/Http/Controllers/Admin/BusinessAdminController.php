@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Duplicates\DuplicateDetector;
+use App\Duplicates\NameNormalizer;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use Illuminate\Http\RedirectResponse;
@@ -109,12 +111,11 @@ class BusinessAdminController extends Controller
             'status.in' => 'Status tidak valid.',
         ]);
 
-        $name = mb_strtolower(trim($validated['name']));
-        $existing = Business::query()->whereRaw('LOWER(name) = ?', [$name])->first();
+        $existing = app(DuplicateDetector::class)->firstExact(NameNormalizer::BUSINESS, $validated['name'], $business?->id);
 
-        if ($existing && $existing->id !== $business?->id) {
+        if ($existing) {
             throw ValidationException::withMessages([
-                'name' => 'Nama bisnis itu sudah ada.',
+                'name' => 'Nama bisnis itu sudah ada ("'.$existing->name.'"). Gunakan data yang ada atau gabungkan lewat menu Data ganda.',
             ]);
         }
 

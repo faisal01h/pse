@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Duplicates\DuplicateDetector;
+use App\Duplicates\NameNormalizer;
 use App\Auditing\InferenceNotice;
 use App\Catalog\PageMeta;
 use App\Catalog\RelationshipGraph;
@@ -260,10 +262,7 @@ class PoliticianController extends Controller
         $validated = $validator->validate();
         $partyId = $this->partyIdFromChoice($validated['party_id'] ?? null, $validated['party_name'] ?? null);
 
-        $politician = Politician::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($validated['name']))])
-            ->whereRaw('LOWER(institution) = ?', [mb_strtolower(trim($validated['department']))])
-            ->first();
+        $politician = app(DuplicateDetector::class)->findPolitician(trim($validated['name']), trim($validated['department']));
 
         if (! $politician) {
             $politician = Politician::create([
@@ -487,7 +486,7 @@ class PoliticianController extends Controller
             return null;
         }
 
-        $party = Party::query()->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first();
+        $party = app(DuplicateDetector::class)->firstExact(NameNormalizer::PARTY, $name);
 
         if (! $party) {
             $party = Party::create(['name' => $name]);

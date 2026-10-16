@@ -2,6 +2,7 @@
 
 use App\Catalog\PageMeta;
 use App\Http\Controllers\Admin\AuditController;
+use App\Http\Controllers\Admin\DuplicateController;
 use App\Http\Controllers\Admin\LlmModelsController;
 use App\Http\Controllers\Admin\NewsRadarController;
 use App\Http\Controllers\Admin\RealPolitikController;
@@ -281,6 +282,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/admin/realpolitik/tick', [RealPolitikController::class, 'tick'])->name('admin.realpolitik.tick');
         Route::get('/admin/llm/models', [LlmModelsController::class, 'index'])->name('admin.llm.models');
         Route::get('/admin/autovet/models', [LlmModelsController::class, 'index'])->name('admin.autovet.models');
+    });
+
+    Route::middleware('permission:duplicates.manage')->group(function () {
+        Route::get('/admin/duplicates', [DuplicateController::class, 'index'])->name('admin.duplicates.index');
+        Route::get('/admin/duplicates/merge', [DuplicateController::class, 'show'])->name('admin.duplicates.show');
+        Route::post('/admin/duplicates/merge', [DuplicateController::class, 'merge'])->name('admin.duplicates.merge');
     });
 
     Route::get('/admin/audits', [AuditController::class, 'index'])
