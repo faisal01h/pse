@@ -10,6 +10,8 @@ use App\Plugins\NewsRadar\Jobs\NewsRadarItemJob;
 use App\Plugins\NewsRadar\Models\NewsRadarSighting;
 use App\Plugins\NewsRadar\NewsRadarHunter;
 use App\Plugins\NewsRadar\NewsRadarService;
+use App\Plugins\NewsRadar\PlaywrightNotConfiguredException;
+use App\Plugins\NewsRadar\PlaywrightSetup;
 use App\Plugins\NewsRadar\RssFeedReader;
 use App\Plugins\NewsRadar\SubmissionFactory;
 use App\Plugins\PluginManager;
@@ -334,6 +336,68 @@ XML;
         $this->actingAs($admin)
             ->postJson(route('admin.newsradar.browser-test'), ['url' => 'not a url'])
             ->assertStatus(422);
+    }
+
+    public function test_admin_browser_test_flags_missing_playwright_for_auto_setup(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->app->instance(HeadlessArticleReader::class, new class extends HeadlessArticleReader {
+            public function probe(string $articleUrl): array
+            {
+                throw new PlaywrightNotConfiguredException('Playwright atau Chromium belum terpasang.');
+            }
+        });
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.newsradar.browser-test'), ['url' => 'https://news.example.com/story'])
+            ->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('needs_setup', true);
+    }
+
+    public function test_admin_can_check_and_configure_playwright(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->app->instance(PlaywrightSetup::class, new class extends PlaywrightSetup {
+            public function status(): array
+            {
+                return ['ready' => false, 'package' => true, 'browser' => false];
+            }
+
+            public function configure(): array
+            {
+                return ['ready' => true, 'package' => true, 'browser' => true];
+            }
+        });
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.newsradar.playwright.status'))
+            ->assertOk()
+            ->assertJsonPath('ready', false)
+            ->assertJsonPath('browser', false);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.newsradar.playwright.configure'))
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('ready', true);
+    }
+
+    public function test_playwright_configure_reports_install_failure(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->app->instance(PlaywrightSetup::class, new class extends PlaywrightSetup {
+            public function configure(): array
+            {
+                throw new \RuntimeException('Gagal menjalankan npm install: ENOTFOUND registry.npmjs.org');
+            }
+        });
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.newsradar.playwright.configure'))
+            ->assertStatus(500)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('message', 'Gagal menjalankan npm install: ENOTFOUND registry.npmjs.org');
     }
 
     public function test_settings_persist_newsradar_feeds_and_frequency(): void

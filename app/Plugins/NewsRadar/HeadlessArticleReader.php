@@ -81,6 +81,10 @@ class HeadlessArticleReader
         if (! $process->isSuccessful()) {
             $detail = trim($process->getErrorOutput() ?: $process->getOutput());
 
+            if (preg_match("/Executable doesn't exist|playwright install|Cannot find package 'playwright'/i", $detail)) {
+                throw new PlaywrightNotConfiguredException('Playwright atau Chromium belum terpasang.');
+            }
+
             throw new RuntimeException('Headless browser gagal membuka halaman: '.mb_substr($detail, 0, 500));
         }
 

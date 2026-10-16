@@ -4,12 +4,35 @@ import SettingsNav from '@/Components/SettingsNav';
 import ValidationErrors from '@/Components/ValidationErrors';
 import { Inertia } from '@inertiajs/inertia';
 import { Head, useForm, usePage } from '@inertiajs/inertia-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 function xsrfToken() {
     const cookie = document.cookie.split('; ').find((row) => row.startsWith('XSRF-TOKEN='));
 
     return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+}
+
+async function postJson(url, body) {
+    let response;
+    try {
+        response = await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': xsrfToken(),
+            },
+            body: JSON.stringify(body),
+        });
+    } catch (e) {
+        throw new Error('Tidak dapat menghubungi server. Coba lagi.');
+    }
+
+    const payload = await response.json().catch(() => ({}));
+
+    return { ok: response.ok && Boolean(payload.ok), payload };
 }
 
 export default function NewsRadar({ auth, settings, llmReady }) {
@@ -21,6 +44,25 @@ export default function NewsRadar({ auth, settings, llmReady }) {
     const [testResult, setTestResult] = useState(null);
     const [testError, setTestError] = useState(null);
     const [testedUrl, setTestedUrl] = useState('');
+    const [playwright, setPlaywright] = useState(null);
+    const [configuring, setConfiguring] = useState(false);
+    const [setupError, setSetupError] = useState(null);
+
+    useEffect(() => {
+        let active = true;
+
+        fetch(route('admin.newsradar.playwright.status'), {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then((response) => response.json())
+            .then((payload) => active && setPlaywright(payload))
+            .catch(() => active && setPlaywright({ ready: false, package: false, browser: false }));
+
+        return () => {
+            active = false;
+        };
+    }, []);
     const { data, setData, post, processing, errors } = useForm({
         newsradar_enabled: Boolean(settings.newsradar_enabled),
         newsradar_feeds: settings.newsradar_feeds || '',
@@ -46,6 +88,26 @@ export default function NewsRadar({ auth, settings, llmReady }) {
 
     const closeTestModal = useCallback(() => setTestModalOpen(false), []);
 
+    async function configurePlaywright() {
+        setConfiguring(true);
+        setSetupError(null);
+
+        try {
+            const { ok, payload } = await postJson(route('admin.newsradar.playwright.configure'), {});
+            if (!ok) {
+                throw new Error(payload.message || 'Konfigurasi Playwright gagal.');
+            }
+
+            setPlaywright(payload);
+        } finally {
+            setConfiguring(false);
+        }
+    }
+
+    function handleConfigure() {
+        configurePlaywright().catch((e) => setSetupError(e.message));
+    }
+
     async function runBrowserTest(event) {
         event.preventDefault();
         const url = testUrl.trim();
@@ -57,30 +119,31 @@ export default function NewsRadar({ auth, settings, llmReady }) {
         setTesting(true);
 
         try {
-            const response = await fetch(route('admin.newsradar.browser-test'), {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-XSRF-TOKEN': xsrfToken(),
-                },
-                body: JSON.stringify({ url }),
-            });
-            const payload = await response.json().catch(() => ({}));
+            let response = await postJson(route('admin.newsradar.browser-test'), { url });
 
-            if (!response.ok || !payload.ok) {
-                setTestError(payload.message || payload.errors?.url?.[0] || 'Tes headless browser gagal.');
-            } else {
-                setTestResult(payload);
+            // Playwright is missing on the server: configure it once, then retry the test.
+            if (!response.ok && response.payload.needs_setup) {
+                await configurePlaywright();
+                response = await postJson(route('admin.newsradar.browser-test'), { url });
             }
+
+            if (!response.ok) {
+                throw new Error(response.payload.message || response.payload.errors?.url?.[0] || 'Tes headless browser gagal.');
+            }
+
+            setTestResult(response.payload);
         } catch (e) {
-            setTestError('Tidak dapat menghubungi server. Coba lagi.');
+            setTestError(e.message || 'Tes headless browser gagal.');
         } finally {
             setTesting(false);
         }
     }
+
+    const playwrightLabel = playwright === null
+        ? 'Memeriksa…'
+        : playwright.ready
+            ? 'Siap'
+            : `Belum siap (paket: ${playwright.package ? 'ada' : 'belum'}, Chromium: ${playwright.browser ? 'ada' : 'belum'})`;
 
     return (
         <Authenticated auth={auth} header={<h1 className="text-4xl font-bold leading-tight">Pengaturan</h1>}>
@@ -193,6 +256,23 @@ export default function NewsRadar({ auth, settings, llmReady }) {
                 <p className="mt-2 text-muted">
                     Buka URL dengan headless browser (Playwright) untuk memastikan halaman bisa dirender sebelum NewsRadar membacanya.
                 </p>
+                <p className="mt-4 font-bold">Status Playwright: {playwrightLabel}</p>
+                <div className="mt-2 flex flex-col gap-2">
+                    <button
+                        type="button"
+                        className="gov-button self-start"
+                        disabled={configuring || testing || playwright?.ready}
+                        onClick={handleConfigure}
+                    >
+                        {configuring ? 'Mengonfigurasi…' : 'Konfigurasi Playwright otomatis'}
+                    </button>
+                    {configuring ? (
+                        <p className="text-sm text-muted">Memasang paket dan Chromium. Ini bisa memakan beberapa menit.</p>
+                    ) : null}
+                    {setupError ? (
+                        <p className="border-l-8 border-red-700 bg-canvas px-4 py-3 font-bold text-red-700">{setupError}</p>
+                    ) : null}
+                </div>
                 <form onSubmit={runBrowserTest} className="mt-4 flex flex-col gap-3 sm:flex-row">
                     <label htmlFor="browser_test_url" className="sr-only">URL yang akan diuji</label>
                     <input
